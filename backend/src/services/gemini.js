@@ -8,31 +8,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // console.log(genAI);
 
-// Gemini supports structured outputs with JSON Schema
+// Use basic model configuration without structured output parameters
 const model = genAI.getGenerativeModel({
-  model: 'gemini-1.5-flash-8b',
-  generationConfig: {
-    responseMimeType: 'application/json',
-    responseSchema: {
-      type: 'object',
-      properties: {
-        cleanedTitle: { type: 'string' },
-        weight: {
-          type: 'object',
-          properties: {
-            value: { type: 'number' },
-            unit: { type: 'string' }
-          }
-        },
-        materials: {
-          type: 'array',
-          items: { type: 'string' }
-        },
-        category: { type: 'string' },
-        productDescription: { type: 'string' }
-      }
-    }
-  }
+  model: 'gemini-1.5-flash-8b'
 });
 
 /**
@@ -41,7 +19,7 @@ const model = genAI.getGenerativeModel({
 export const cleanProductData = async (scrapedData) => {
   try {
     const prompt = `
-You are a data extraction expert. Clean and structure this Amazon product data:
+You are a data extraction expert. Clean and structure this Amazon product data and return ONLY valid JSON:
 
 Raw Data:
 Title: ${scrapedData.title}
@@ -49,21 +27,49 @@ Product Details: ${JSON.stringify(scrapedData.details || {})}
 Category: ${scrapedData.category || 'N/A'}
 Description: ${scrapedData.description || 'N/A'}
 
-Extract and return:
-1. cleanedTitle: A concise, clean product title
-2. weight: { value: number, unit: 'kg'|'g'|'lb'|'oz' }
-   - Convert to kg if possible
-   - If weight not found, estimate based on product type
-3. materials: Array of materials (plastic, metal, cotton, etc.)
-4. category: Product category (Electronics, Clothing, Home, etc.)
-5. productDescription: 1-2 sentence description for carbon analysis
+Return ONLY a valid JSON object with these exact fields:
+{
+  "cleanedTitle": "A concise, clean product title",
+  "weight": {
+    "value": number,
+    "unit": "kg"
+  },
+  "materials": ["material1", "material2"],
+  "category": "Electronics|Clothing|Home|etc",
+  "productDescription": "1-2 sentence description for carbon analysis"
+}
 
-Be precise with weight extraction and material identification.
+Rules:
+- Convert weight to kg if possible, estimate if not found
+- List specific materials (plastic, metal, cotton, etc.)
+- Be precise with weight extraction and material identification
+- Return ONLY valid JSON, no other text
 `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const cleanedData = JSON.parse(response.text());
+    const responseText = response.text().trim();
+    
+    let cleanedData;
+    try {
+      // Try to parse the JSON response
+      cleanedData = JSON.parse(responseText);
+    } catch (parseError) {
+      // If JSON parsing fails, try to extract JSON from the response
+      logger.warn('JSON parsing failed, attempting to extract JSON', { response: responseText.substring(0, 200) });
+      
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanedData = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Invalid JSON response from Gemini');
+      }
+    }
+
+    // Validate required fields
+    if (!cleanedData.cleanedTitle || !cleanedData.weight || !cleanedData.materials || !cleanedData.category) {
+      throw new Error('Missing required fields in Gemini response');
+    }
 
     logger.info('Gemini cleaned product data successfully', { asin: scrapedData.asin });
     return cleanedData;
@@ -71,72 +77,63 @@ Be precise with weight extraction and material identification.
   } catch (error) {
     logger.error('Gemini API error:', error);
     
-    // Handle API errors with fallback data (quota, invalid key, etc.)
-    if (error.message && (
-      error.message.includes('quota') || 
-      error.message.includes('RESOURCE_EXHAUSTED') ||
-      error.message.includes('API key not valid') ||
-      error.message.includes('API_KEY_INVALID')
-    )) {
-      logger.warn('Gemini API unavailable, using fallback data extraction', { 
-        asin: scrapedData.asin,
-        error: error.message.substring(0, 100) 
-      });
-      
-      // Simple fallback data extraction without AI
-      const titleLower = (scrapedData.title || '').toLowerCase();
-      
-      // Try to extract weight from title or details
-      let estimatedWeight = 0.5; // default
-      const weightRegex = /(\d+(?:\.\d+)?)\s*(kg|g|lb|oz|pound|gram|kilogram)/i;
-      const titleMatch = titleLower.match(weightRegex);
-      const detailsMatch = JSON.stringify(scrapedData.details || {}).match(weightRegex);
-      
-      if (titleMatch) {
-        estimatedWeight = parseFloat(titleMatch[1]);
-        const unit = titleMatch[2].toLowerCase();
-        if (unit.includes('g') && !unit.includes('kg')) estimatedWeight /= 1000;
-        if (unit.includes('lb') || unit.includes('pound')) estimatedWeight *= 0.453592;
-        if (unit.includes('oz')) estimatedWeight *= 0.0283495;
-      } else if (detailsMatch) {
-        estimatedWeight = parseFloat(detailsMatch[1]);
-        const unit = detailsMatch[2].toLowerCase();
-        if (unit.includes('g') && !unit.includes('kg')) estimatedWeight /= 1000;
-        if (unit.includes('lb') || unit.includes('pound')) estimatedWeight *= 0.453592;
-        if (unit.includes('oz')) estimatedWeight *= 0.0283495;
-      } else {
-        // Category-based weight estimation
-        if (titleLower.includes('paper') || titleLower.includes('book')) estimatedWeight = 0.2;
-        else if (titleLower.includes('clothing') || titleLower.includes('shirt')) estimatedWeight = 0.3;
-        else if (titleLower.includes('electronic') || titleLower.includes('phone')) estimatedWeight = 0.4;
-        else if (titleLower.includes('furniture')) estimatedWeight = 5.0;
-        else if (titleLower.includes('appliance')) estimatedWeight = 15.0;
-      }
-      
-      // Category-based material estimation
-      let materials = ['unknown'];
-      if (titleLower.includes('plastic')) materials = ['plastic'];
-      else if (titleLower.includes('metal') || titleLower.includes('steel')) materials = ['metal', 'steel'];
-      else if (titleLower.includes('cotton') || titleLower.includes('fabric')) materials = ['cotton', 'fabric'];
-      else if (titleLower.includes('wood')) materials = ['wood'];
-      else if (titleLower.includes('glass')) materials = ['glass'];
-      else if (titleLower.includes('paper')) materials = ['paper'];
-      
-      const cleanedData = {
-        cleanedTitle: scrapedData.title || 'Unknown Product',
-        weight: {
-          value: estimatedWeight,
-          unit: 'kg'
-        },
-        materials: materials,
-        category: scrapedData.category || 'General',
-        productDescription: scrapedData.description || scrapedData.title || 'Product analysis'
-      };
-      
-      return cleanedData;
+    // Always use fallback data extraction when Gemini fails
+    logger.warn('Gemini API unavailable, using fallback data extraction', { 
+      asin: scrapedData.asin,
+      error: error.message ? error.message.substring(0, 100) : 'Unknown error'
+    });
+    
+    // Simple fallback data extraction without AI
+    const titleLower = (scrapedData.title || '').toLowerCase();
+    
+    // Try to extract weight from title or details
+    let estimatedWeight = 0.5; // default
+    const weightRegex = /(\d+(?:\.\d+)?)\s*(kg|g|lb|oz|pound|gram|kilogram)/i;
+    const titleMatch = titleLower.match(weightRegex);
+    const detailsMatch = JSON.stringify(scrapedData.details || {}).match(weightRegex);
+    
+    if (titleMatch) {
+      estimatedWeight = parseFloat(titleMatch[1]);
+      const unit = titleMatch[2].toLowerCase();
+      if (unit.includes('g') && !unit.includes('kg')) estimatedWeight /= 1000;
+      if (unit.includes('lb') || unit.includes('pound')) estimatedWeight *= 0.453592;
+      if (unit.includes('oz')) estimatedWeight *= 0.0283495;
+    } else if (detailsMatch) {
+      estimatedWeight = parseFloat(detailsMatch[1]);
+      const unit = detailsMatch[2].toLowerCase();
+      if (unit.includes('g') && !unit.includes('kg')) estimatedWeight /= 1000;
+      if (unit.includes('lb') || unit.includes('pound')) estimatedWeight *= 0.453592;
+      if (unit.includes('oz')) estimatedWeight *= 0.0283495;
+    } else {
+      // Category-based weight estimation
+      if (titleLower.includes('paper') || titleLower.includes('book')) estimatedWeight = 0.2;
+      else if (titleLower.includes('clothing') || titleLower.includes('shirt')) estimatedWeight = 0.3;
+      else if (titleLower.includes('electronic') || titleLower.includes('phone')) estimatedWeight = 0.4;
+      else if (titleLower.includes('furniture')) estimatedWeight = 5.0;
+      else if (titleLower.includes('appliance')) estimatedWeight = 15.0;
     }
     
-    throw new Error('Failed to clean product data with Gemini');
+    // Category-based material estimation
+    let materials = ['unknown'];
+    if (titleLower.includes('plastic')) materials = ['plastic'];
+    else if (titleLower.includes('metal') || titleLower.includes('steel')) materials = ['metal', 'steel'];
+    else if (titleLower.includes('cotton') || titleLower.includes('fabric')) materials = ['cotton', 'fabric'];
+    else if (titleLower.includes('wood')) materials = ['wood'];
+    else if (titleLower.includes('glass')) materials = ['glass'];
+    else if (titleLower.includes('paper')) materials = ['paper'];
+    
+    const cleanedData = {
+      cleanedTitle: scrapedData.title || 'Unknown Product',
+      weight: {
+        value: estimatedWeight,
+        unit: 'kg'
+      },
+      materials: materials,
+      category: scrapedData.category || 'General',
+      productDescription: scrapedData.description || scrapedData.title || 'Product analysis'
+    };
+    
+    return cleanedData;
   }
 };
 
@@ -146,25 +143,48 @@ Be precise with weight extraction and material identification.
 export const estimateCarbonFootprint = async (productData) => {
   try {
     const prompt = `
-You are a sustainability expert. Estimate the carbon footprint for this product:
+You are a sustainability expert. Estimate the carbon footprint for this product and return ONLY valid JSON:
 
 Product: ${productData.cleanedTitle}
 Weight: ${productData.weight.value} ${productData.weight.unit}
 Materials: ${productData.materials.join(', ')}
 Category: ${productData.category}
 
-Provide:
-1. estimatedCO2e: Total carbon footprint in kg CO2e
-2. confidence: 'high'|'medium'|'low'
-3. reasoning: Brief explanation of estimate
+Return ONLY a valid JSON object with these exact fields:
+{
+  "estimatedCO2e": number,
+  "confidence": "high|medium|low", 
+  "reasoning": "Brief explanation of estimate"
+}
 
 Base your estimate on typical manufacturing, transportation, and material emissions.
-Return as JSON: { estimatedCO2e: number, confidence: string, reasoning: string }
+Return ONLY valid JSON, no other text.
 `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const estimate = JSON.parse(response.text());
+    const responseText = response.text().trim();
+    
+    let estimate;
+    try {
+      // Try to parse the JSON response
+      estimate = JSON.parse(responseText);
+    } catch (parseError) {
+      // If JSON parsing fails, try to extract JSON from the response
+      logger.warn('JSON parsing failed for carbon estimate, attempting to extract JSON', { response: responseText.substring(0, 200) });
+      
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        estimate = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Invalid JSON response from Gemini for carbon estimation');
+      }
+    }
+
+    // Validate required fields
+    if (typeof estimate.estimatedCO2e !== 'number' || !estimate.confidence) {
+      throw new Error('Missing required fields in Gemini carbon estimation response');
+    }
 
     logger.info('Gemini estimated carbon footprint', {
       co2e: estimate.estimatedCO2e,
@@ -176,16 +196,11 @@ Return as JSON: { estimatedCO2e: number, confidence: string, reasoning: string }
   } catch (error) {
     logger.error('Gemini carbon estimation error:', error);
     
-    // Handle API errors with fallback estimate
-    if (error.message && (
-      error.message.includes('quota') || 
-      error.message.includes('RESOURCE_EXHAUSTED') ||
-      error.message.includes('API key not valid') ||
-      error.message.includes('API_KEY_INVALID')
-    )) {
-      logger.warn('Gemini API unavailable, using basic carbon estimate', { 
-        product: productData.cleanedTitle 
-      });
+    // Always use fallback estimate when Gemini fails
+    logger.warn('Gemini API unavailable, using basic carbon estimate', { 
+      product: productData.cleanedTitle,
+      error: error.message ? error.message.substring(0, 100) : 'Unknown error'
+    });
       
       // Simple fallback carbon estimation based on materials and category
       const productTitle = (productData.cleanedTitle || '').toLowerCase();
@@ -217,8 +232,5 @@ Return as JSON: { estimatedCO2e: number, confidence: string, reasoning: string }
         confidence: 'low',
         reasoning: `Estimated based on ${materials.join(', ')} materials and ${productData.weight.value}kg weight`
       };
-    }
-    
-    throw new Error('Failed to estimate carbon footprint');
   }
 };
