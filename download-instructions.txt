@@ -1,0 +1,32 @@
+🌱 HOW TO ADD THE LOTTIE PLANT ANIMATION FROM LOTTIEFILES:
+
+1. **Download the Animation:**
+   - Go to: https://lottiefiles.com/animations/plant (or the plant animation you found)
+   - Click the "Download" button
+   - Select "Lottie JSON" format
+   - Save the file
+
+2. **Add to Your Extension:**
+   - Copy the downloaded JSON file to:
+     `/Users/juliezhou/BloomCart/extension/assets/animations/plant.json`
+   - Replace the current plant.json file with your downloaded animation
+
+3. **Test the Animation:**
+   - Reload your Chrome extension
+   - Go to any Amazon product page
+   - You should see the Lottie plant animation in the bottom right corner
+   - The plant will grow/shrink based on product sustainability ratings
+
+4. **Animation Behavior:**
+   - Rating A: +10 frames (plant grows more)
+   - Rating B: +5 frames (plant grows)
+   - Rating C: -5 frames (plant shrinks slightly)
+   - Rating D: -10 frames (plant shrinks)
+   - Rating E: -15 frames (plant shrinks significantly)
+
+5. **Troubleshooting:**
+   - If Lottie doesn't load, it will fallback to emoji plants (🌱🌿🌻🌸🥀)
+   - Check browser console for any Lottie errors
+   - Make sure your animation has exactly 100 frames for best results
+
+✅ READY TO USE: Your extension is now set up to use Lottie animations!

@@ -109,6 +109,32 @@ const AmazonScraper = {
   },
 
   /**
+   * Extract product brand
+   */
+  getBrand() {
+    const selectors = [
+      '#bylineInfo',
+      'a#brand',
+      '.po-brand .po-break-word',
+      'tr.po-brand td.a-span9',
+      '[data-feature-name="bylineInfo"]'
+    ];
+
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        let brandText = element.textContent.trim();
+        // Remove "Visit the ... Store" or "Brand: " prefixes
+        brandText = brandText.replace(/^(Visit the |Brand:\s*)/i, '');
+        brandText = brandText.replace(/\s+Store$/i, '');
+        return brandText;
+      }
+    }
+
+    return 'Unknown';
+  },
+
+  /**
    * Extract product category
    */
   getCategory() {
@@ -167,6 +193,7 @@ const AmazonScraper = {
     const scrapedData = {
       asin,
       title: this.getTitle(),
+      brand: this.getBrand(),
       details: this.getProductDetails(),
       category: this.getCategory(),
       description: this.getDescription(),

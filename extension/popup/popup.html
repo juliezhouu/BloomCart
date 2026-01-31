@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BloomCart - Your Sustainability Garden</title>
+  <title>BloomCart</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,59 +11,93 @@
     <!-- Header -->
     <header class="popup-header">
       <div class="logo">
-        <span class="flower-icon">🌸</span>
+        <svg class="leaf-icon" viewBox="0 0 24 24" width="24" height="24">
+          <path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8,20C19,20 22,3 22,3C21,5 14,5.25 9,6.25C4,7.25 2,11.5 2,13.5C2,15.5 3.75,17.25 3.75,17.25C7,8 17,8 17,8Z"/>
+        </svg>
         <h1>BloomCart</h1>
       </div>
-      <p class="tagline">Grow your sustainability garden</p>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>Active</span>
+      </div>
     </header>
 
-    <!-- Plant Stats -->
-    <section class="plant-stats">
-      <div class="stat-card">
-        <div class="stat-icon">🌱</div>
-        <div class="stat-info">
-          <p class="stat-label">Plant Health</p>
-          <p class="stat-value" id="plant-health">0%</p>
-        </div>
-      </div>
+    <!-- Current Product -->
+    <section class="current-product" id="current-product">
+      <h2 id="product-title">No product selected</h2>
+      <p id="product-brand">Visit Amazon product pages</p>
+    </section>
 
-      <div class="stat-card">
-        <div class="stat-icon">🛒</div>
-        <div class="stat-info">
-          <p class="stat-label">Total Purchases</p>
-          <p class="stat-value" id="total-purchases">0</p>
+    <!-- Sustainability Score -->
+    <section class="score-section" id="score-section">
+      <div class="score-badge">
+        <div class="score-circle">
+          <span id="score-number">0</span>
         </div>
+        <div class="score-sparkle">✨</div>
       </div>
+      <h3 id="score-label">Calculating...</h3>
+      <p id="score-tier">Tier 0 of 5</p>
 
-      <div class="stat-card">
-        <div class="stat-icon">✅</div>
-        <div class="stat-info">
-          <p class="stat-label">Sustainable</p>
-          <p class="stat-value" id="sustainable-purchases">0</p>
+      <!-- Tier Progress Bar -->
+      <div class="tier-progress">
+        <div class="tier-bar tier-1"></div>
+        <div class="tier-bar tier-2"></div>
+        <div class="tier-bar tier-3"></div>
+        <div class="tier-bar tier-4"></div>
+        <div class="tier-bar tier-5"></div>
+      </div>
+    </section>
+
+    <!-- Collapsible Sustainability Details -->
+    <section class="sustainability-details collapsed" id="sustainability-details">
+      <button class="details-toggle" id="details-toggle">
+        <span>Sustainability Details</span>
+        <svg class="chevron" viewBox="0 0 24 24" width="16" height="16">
+          <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
+        </svg>
+      </button>
+      <div class="details-content" id="details-content">
+        <div class="detail-item">
+          <span class="detail-label">Environmental</span>
+          <span class="detail-value" id="detail-environmental">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Social</span>
+          <span class="detail-value" id="detail-social">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Economic</span>
+          <span class="detail-value" id="detail-economic">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Carbon Footprint</span>
+          <span class="detail-value" id="detail-carbon">-</span>
         </div>
       </div>
     </section>
 
-    <!-- Progress Bar -->
-    <section class="progress-section">
-      <label for="plant-progress">Plant Growth Progress</label>
-      <div class="progress-bar">
-        <div class="progress-fill" id="plant-progress"></div>
+    <!-- Flower Garden -->
+    <section class="flower-garden">
+      <div class="garden-bg"></div>
+      <div class="flower-container" id="flower-container">
+        <!-- Flower will be rendered by JavaScript -->
       </div>
+      <h3 class="garden-title">Your Bloom</h3>
+      <button class="preview-btn" id="preview-btn">Preview</button>
     </section>
 
-    <!-- Recent Activity -->
-    <section class="recent-activity">
-      <h2>Recent Activity</h2>
-      <div id="activity-list" class="activity-list">
-        <p class="no-activity">No purchases tracked yet. Visit Amazon to start!</p>
-      </div>
-    </section>
+    <!-- Add to Cart Button -->
+    <button class="cart-button" id="cart-button">
+      <svg viewBox="0 0 24 24" width="20" height="20">
+        <path d="M17,18C15.89,18 15,18.89 15,20A2,2 0 0,0 17,22A2,2 0 0,0 19,20C19,18.89 18.1,18 17,18M1,2V4H3L6.6,11.59L5.24,14.04C5.09,14.32 5,14.65 5,15A2,2 0 0,0 7,17H19V15H7.42A0.25,0.25 0 0,1 7.17,14.75C7.17,14.7 7.18,14.66 7.2,14.63L8.1,13H15.55C16.3,13 16.96,12.58 17.3,11.97L20.88,5.5C20.95,5.34 21,5.17 21,5A1,1 0 0,0 20,4H5.21L4.27,2M7,18C5.89,18 5,18.89 5,20A2,2 0 0,0 7,22A2,2 0 0,0 9,20C9,18.89 8.1,18 7,18Z"/>
+      </svg>
+      <span>Add to Cart & Grow Garden</span>
+    </button>
 
     <!-- Footer -->
     <footer class="popup-footer">
-      <p>Shop sustainably on Amazon to grow your plant! 🌿</p>
-      <a href="https://www.amazon.com" target="_blank" class="cta-button">Go to Amazon</a>
+      <p>BloomCart Extension • v1.0</p>
     </footer>
   </div>
 

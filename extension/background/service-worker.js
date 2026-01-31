@@ -9,7 +9,7 @@ const API_BASE_URL = 'http://localhost:3000/api';
  * Listen for messages from content scripts
  */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('BloomCart Service Worker: Received message', request);
+  console.log('BloomCart Service Worker: Received message:', request.action);
 
   if (request.action === 'analyzeProduct') {
     handleAnalyzeProduct(request.data, sendResponse);
@@ -18,13 +18,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'trackPurchase') {
     handleTrackPurchase(request.data, sendResponse);
-    return true;
+    return true; // Keep channel open for async response
   }
 
   if (request.action === 'getPlantState') {
     handleGetPlantState(request.data, sendResponse);
-    return true;
+    return true; // Keep channel open for async response
   }
+
+  // Handle unknown actions
+  console.warn('BloomCart Service Worker: Unknown action:', request.action);
+  return false;
 });
 
 /**
@@ -80,24 +84,52 @@ async function handleAnalyzeProduct(data, sendResponse) {
  */
 async function handleTrackPurchase(data, sendResponse) {
   try {
-    console.log('BloomCart: Tracking purchase', data);
+    console.log('BloomCart: Tracking purchase', JSON.stringify(data, null, 2));
 
     const { userId, product } = data;
+
+    // Validate required data
+    if (!userId) {
+      throw new Error('Missing userId');
+    }
+    if (!product) {
+      throw new Error('Missing product data');
+    }
+
+    // Convert sustainability score to rating grade
+    const score = product.overallScore || product.rating?.score || 0;
+    let grade = 'E'; // Default to worst rating
+    if (score >= 80) grade = 'A';
+    else if (score >= 60) grade = 'B';
+    else if (score >= 40) grade = 'C';
+    else if (score >= 20) grade = 'D';
+
+    // Calculate frame change based on score
+    let frameChange = 0;
+    if (score >= 80) frameChange = 15;
+    else if (score >= 60) frameChange = 10;
+    else if (score >= 40) frameChange = 5;
+    else if (score >= 20) frameChange = 0;
+    else frameChange = -5;
+
+    const requestBody = {
+      userId,
+      rating: grade,
+      frameChange,
+      ratingScore: score,
+      asin: product.asin || 'unknown',
+      productTitle: product.title || 'Unknown Product',
+      carbonFootprint: product.carbonFootprint || { co2e: 0, source: 'unknown' }
+    };
+
+    console.log('BloomCart: Sending to backend:', JSON.stringify(requestBody, null, 2));
 
     const response = await fetch(`${API_BASE_URL}/plant-state/update`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        userId,
-        rating: product.rating.grade,
-        frameChange: product.rating.frameChange,
-        ratingScore: product.rating.score,
-        asin: product.asin,
-        productTitle: product.title,
-        carbonFootprint: product.carbonFootprint
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {

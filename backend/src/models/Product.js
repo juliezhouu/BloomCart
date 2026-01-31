@@ -14,6 +14,11 @@ const productSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  brand: {
+    type: String,
+    trim: true,
+    default: 'Unknown'
+  },
   weight: {
     value: { type: Number, required: true },
     unit: { type: String, enum: ['kg', 'g', 'lb', 'oz'], default: 'kg' }
@@ -25,6 +30,32 @@ const productSchema = new mongoose.Schema({
   category: {
     type: String,
     trim: true
+  },
+  // Overall sustainability score (0-100)
+  overallScore: {
+    type: Number,
+    min: 0,
+    max: 100,
+    required: true
+  },
+  // Component scores (0-100)
+  environmental: {
+    type: Number,
+    min: 0,
+    max: 100,
+    required: true
+  },
+  social: {
+    type: Number,
+    min: 0,
+    max: 100,
+    required: true
+  },
+  economic: {
+    type: Number,
+    min: 0,
+    max: 100,
+    required: true
   },
   carbonFootprint: {
     co2e: { type: Number, required: true }, // in kg CO2e

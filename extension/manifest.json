@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BloomCart - Sustainable Shopping on Amazon",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Gamify sustainable shopping with real-time carbon footprint ratings and plant growth animations",
 
   "permissions": [
@@ -31,7 +31,6 @@
         "https://www.amazon.ca/*"
       ],
       "js": [
-        "ui/lottie/lottie-loader.js",
         "content/amazon-scraper.js",
         "content/content.js"
       ],
@@ -41,7 +40,7 @@
   ],
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000 https://cdnjs.cloudflare.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000;"
   },
 
   "web_accessible_resources": [
@@ -49,9 +48,6 @@
       "resources": [
         "ui/floating-tab/*.html",
         "ui/floating-tab/*.css",
-        "ui/lottie/*.css",
-        "ui/lottie/*.js",
-        "assets/animations/*.json",
         "assets/images/*.svg",
         "assets/images/*.png",
         "assets/icons/*.png"
