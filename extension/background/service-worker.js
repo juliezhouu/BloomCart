@@ -42,8 +42,12 @@ async function handleAnalyzeProduct(data, sendResponse) {
       body: JSON.stringify(data)
     });
 
+    console.log('BloomCart: Fetch response status:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('BloomCart: API error response:', errorText);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
@@ -58,6 +62,11 @@ async function handleAnalyzeProduct(data, sendResponse) {
 
   } catch (error) {
     console.error('BloomCart: Product analysis failed', error);
+    console.error('BloomCart: Error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
 
     sendResponse({
       success: false,

@@ -80,82 +80,68 @@ function createPlantDisplay() {
     return; // Already created
   }
 
-  // Create container
+  // Create container with simple emoji plant (Lottie disabled due to CSP)
   plantContainer = document.createElement('div');
   plantContainer.id = 'bloomcart-plant-container';
   plantContainer.innerHTML = `
-    <div id="bloomcart-plant-animation"></div>
+    <div id="bloomcart-plant-animation" style="font-size: 80px; text-align: center;">🌱</div>
   `;
 
   document.body.appendChild(plantContainer);
 
-  // Initialize Lottie animation
-  initializePlantAnimation();
-
-  console.log('BloomCart: Plant display created');
+  console.log('BloomCart: Plant display created (emoji mode)');
 }
 
 /**
- * Initialize Lottie plant animation
+ * Initialize plant animation (Simplified emoji version)
  */
 function initializePlantAnimation() {
   const animationContainer = document.getElementById('bloomcart-plant-animation');
 
-  if (!animationContainer || typeof lottie === 'undefined') {
-    console.error('BloomCart: Lottie not loaded or container not found');
+  if (!animationContainer) {
+    console.warn('BloomCart: Plant container not found');
     return;
   }
 
-  // Load Lottie animation
-  // Note: You'll need to add a plant animation JSON file
-  const animationPath = chrome.runtime.getURL('assets/animations/plant.json');
+  // Update emoji based on plant health
+  updatePlantEmoji();
+  console.log('BloomCart: Plant emoji initialized');
+}
 
-  fetch(animationPath)
-    .then(response => response.json())
-    .then(animationData => {
-      window.plantAnimation = lottie.loadAnimation({
-        container: animationContainer,
-        renderer: 'svg',
-        loop: false,
-        autoplay: false,
-        animationData: animationData
-      });
+/**
+ * Update plant emoji based on health
+ */
+function updatePlantEmoji() {
+  const animationContainer = document.getElementById('bloomcart-plant-animation');
+  if (!animationContainer) return;
 
-      // Set to current frame
-      const totalFrames = window.plantAnimation.totalFrames;
-      const currentFrame = (currentPlantState.currentFrame / 100) * totalFrames;
-      window.plantAnimation.goToAndStop(currentFrame, true);
+  const health = currentPlantState.currentFrame;
+  let emoji = '🌱'; // Default sprout
 
-      console.log('BloomCart: Plant animation initialized at frame', currentFrame);
-    })
-    .catch(error => {
-      console.error('BloomCart: Failed to load plant animation', error);
-    });
+  if (health >= 80) emoji = '🌸'; // Flowering
+  else if (health >= 60) emoji = '🌻'; // Sunflower
+  else if (health >= 40) emoji = '🌿'; // Healthy plant
+  else if (health >= 20) emoji = '🌱'; // Sprout
+  else emoji = '🥀'; // Wilted
+
+  animationContainer.textContent = emoji;
 }
 
 /**
  * Update plant animation to new frame
  */
 function updatePlantAnimation(frameChange) {
-  if (!window.plantAnimation) {
-    console.warn('BloomCart: Plant animation not initialized');
-    return;
-  }
-
   const newFramePercent = Math.max(0, Math.min(100, currentPlantState.currentFrame + frameChange));
-  const totalFrames = window.plantAnimation.totalFrames;
-  const targetFrame = (newFramePercent / 100) * totalFrames;
-
-  // Animate to new frame
-  window.plantAnimation.playSegments([window.plantAnimation.currentFrame, targetFrame], true);
 
   // Update state
   savePlantState({ currentFrame: newFramePercent });
 
-  console.log('BloomCart: Plant animation updated', {
+  // Update emoji
+  updatePlantEmoji();
+
+  console.log('BloomCart: Plant updated', {
     frameChange,
-    newFramePercent,
-    targetFrame
+    newHealth: newFramePercent
   });
 }
 

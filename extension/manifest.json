@@ -14,7 +14,8 @@
     "https://www.amazon.com/*",
     "https://www.amazon.co.uk/*",
     "https://www.amazon.ca/*",
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
   ],
 
   "background": {
@@ -39,6 +40,10 @@
     }
   ],
 
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000 https://cdnjs.cloudflare.com;"
+  },
+
   "web_accessible_resources": [
     {
       "resources": [
@@ -56,17 +61,6 @@
   ],
 
   "action": {
-    "default_popup": "popup/popup.html",
-    "default_icon": {
-      "16": "assets/icons/icon16.png",
-      "48": "assets/icons/icon48.png",
-      "128": "assets/icons/icon128.png"
-    }
-  },
-
-  "icons": {
-    "16": "assets/icons/icon16.png",
-    "48": "assets/icons/icon48.png",
-    "128": "assets/icons/icon128.png"
+    "default_popup": "popup/popup.html"
   }
 }
