@@ -3,9 +3,9 @@ import { logger } from '../utils/logger.js';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Gemini 2.0 supports structured outputs with JSON Schema
+// Gemini 2.5 supports structured outputs with JSON Schema
 const model = genAI.getGenerativeModel({
-  model: 'gemini-2.0-flash-exp',
+  model: 'gemini-2.5-flash',
   generationConfig: {
     responseMimeType: 'application/json',
     responseSchema: {

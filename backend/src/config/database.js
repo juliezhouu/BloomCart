@@ -26,6 +26,7 @@ export const connectDatabase = async () => {
 
   } catch (error) {
     logger.error('❌ MongoDB connection failed:', error);
-    process.exit(1);
+    logger.warn('⚠️  Server will continue without database caching');
+    // Don't exit - allow server to run without MongoDB for testing
   }
 };

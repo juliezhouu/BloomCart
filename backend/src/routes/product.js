@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import { cleanProductData, estimateCarbonFootprint } from '../services/gemini.js';
 import { calculateCarbonFootprint } from '../services/climatiq.js';
@@ -19,11 +20,18 @@ router.post('/analyze-product', async (req, res) => {
       return res.status(400).json({ error: 'Missing required product data' });
     }
 
-    // Check if product already analyzed (cache)
-    const existingProduct = await Product.findOne({ asin: scrapedData.asin.toUpperCase() });
-    if (existingProduct) {
-      logger.info('Returning cached product rating', { asin: scrapedData.asin });
-      return res.json({ product: existingProduct, cached: true });
+    // Check if product already analyzed (cache) - only if MongoDB is connected
+    let existingProduct = null;
+    if (mongoose.connection.readyState === 1) {
+      try {
+        existingProduct = await Product.findOne({ asin: scrapedData.asin.toUpperCase() });
+        if (existingProduct) {
+          logger.info('Returning cached product rating', { asin: scrapedData.asin });
+          return res.json({ product: existingProduct, cached: true });
+        }
+      } catch (dbError) {
+        logger.warn('Database query failed, proceeding without cache', { error: dbError.message });
+      }
     }
 
     // Step 1: Clean data with Gemini
@@ -50,8 +58,8 @@ router.post('/analyze-product', async (req, res) => {
 
     const rating = calculateRating(carbonResult.co2e, weightInKg);
 
-    // Step 4: Save to database
-    const product = new Product({
+    // Step 4: Create product object
+    const productData = {
       asin: scrapedData.asin.toUpperCase(),
       title: cleanedData.cleanedTitle,
       weight: cleanedData.weight,
@@ -67,13 +75,27 @@ router.post('/analyze-product', async (req, res) => {
       metadata: {
         scrapedData: scrapedData
       }
-    });
+    };
 
-    await product.save();
-    logger.info('Product analyzed and saved', {
-      asin: scrapedData.asin,
-      rating: rating.grade
-    });
+    // Save to database only if MongoDB is connected
+    let product = productData;
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const productDoc = new Product(productData);
+        product = await productDoc.save();
+        logger.info('Product analyzed and saved to database', {
+          asin: scrapedData.asin,
+          rating: rating.grade
+        });
+      } catch (dbError) {
+        logger.warn('Failed to save to database, returning data without caching', { error: dbError.message });
+      }
+    } else {
+      logger.info('Product analyzed (no database)', {
+        asin: scrapedData.asin,
+        rating: rating.grade
+      });
+    }
 
     res.json({ product, cached: false });
 
