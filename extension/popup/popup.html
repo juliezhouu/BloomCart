@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BloomCart - Your Sustainability Garden</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="logo">
+        <span class="flower-icon">🌸</span>
+        <h1>BloomCart</h1>
+      </div>
+      <p class="tagline">Grow your sustainability garden</p>
+    </header>
+
+    <!-- Plant Stats -->
+    <section class="plant-stats">
+      <div class="stat-card">
+        <div class="stat-icon">🌱</div>
+        <div class="stat-info">
+          <p class="stat-label">Plant Health</p>
+          <p class="stat-value" id="plant-health">0%</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🛒</div>
+        <div class="stat-info">
+          <p class="stat-label">Total Purchases</p>
+          <p class="stat-value" id="total-purchases">0</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+          <p class="stat-label">Sustainable</p>
+          <p class="stat-value" id="sustainable-purchases">0</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress Bar -->
+    <section class="progress-section">
+      <label for="plant-progress">Plant Growth Progress</label>
+      <div class="progress-bar">
+        <div class="progress-fill" id="plant-progress"></div>
+      </div>
+    </section>
+
+    <!-- Recent Activity -->
+    <section class="recent-activity">
+      <h2>Recent Activity</h2>
+      <div id="activity-list" class="activity-list">
+        <p class="no-activity">No purchases tracked yet. Visit Amazon to start!</p>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <p>Shop sustainably on Amazon to grow your plant! 🌿</p>
+      <a href="https://www.amazon.com" target="_blank" class="cta-button">Go to Amazon</a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,267 @@
+/**
+ * BloomCart Content Styles
+ * Styles for plant animation and floating tab
+ */
+
+/* Plant Container - Bottom Right */
+#bloomcart-plant-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 150px;
+  height: 150px;
+  z-index: 999998;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+#bloomcart-plant-animation {
+  width: 100%;
+  height: 100%;
+}
+
+/* Floating Tab - Right Side */
+#bloomcart-floating-tab {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Tab Trigger - Small leaf icon */
+#bloomcart-tab-trigger {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 100px;
+  background: linear-gradient(135deg, #7CB342 0%, #558B2F 100%);
+  border-radius: 20px 0 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+#bloomcart-tab-trigger:hover {
+  width: 55px;
+  box-shadow: -4px 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+#bloomcart-tab-trigger .leaf-icon {
+  font-size: 28px;
+  animation: gentle-sway 3s ease-in-out infinite;
+}
+
+@keyframes gentle-sway {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+/* Tab Content - Slides out from right */
+#bloomcart-tab-content {
+  position: absolute;
+  right: 50px;
+  top: 50%;
+  transform: translateY(-50%) translateX(400px);
+  width: 350px;
+  max-height: 500px;
+  background: white;
+  border-radius: 15px 0 0 15px;
+  box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.3);
+  padding: 25px;
+  overflow-y: auto;
+  transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#bloomcart-floating-tab.expanded #bloomcart-tab-content {
+  transform: translateY(-50%) translateX(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Rating Display */
+.bloomcart-rating {
+  text-align: center;
+  position: relative;
+}
+
+.bloomcart-rating h3 {
+  margin: 0 0 20px 0;
+  font-size: 22px;
+  color: #333;
+  font-weight: 600;
+}
+
+.close-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #f44336;
+  color: white;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  line-height: 1;
+  padding: 0;
+}
+
+.close-btn:hover {
+  background: #d32f2f;
+  transform: scale(1.1);
+}
+
+.rating-badge {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: bold;
+  color: white;
+  margin: 0 auto 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  animation: badge-pop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+.rating-description {
+  font-size: 16px;
+  color: #555;
+  margin: 15px 0;
+  font-weight: 500;
+}
+
+.rating-details {
+  background: #f5f5f5;
+  border-radius: 10px;
+  padding: 15px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.rating-details p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.rating-details strong {
+  color: #558B2F;
+}
+
+.data-source {
+  font-size: 12px;
+  color: #999;
+  margin-top: 10px;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #7CB342 0%, #558B2F 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 15px;
+}
+
+.action-btn:hover {
+  background: linear-gradient(135deg, #689F38 0%, #33691E 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 179, 66, 0.4);
+}
+
+/* Loading State */
+.bloomcart-loading {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #7CB342;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.bloomcart-loading p {
+  color: #555;
+  font-size: 14px;
+}
+
+/* Error State */
+.bloomcart-error {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.bloomcart-error p {
+  color: #f44336;
+  font-size: 14px;
+}
+
+/* Scrollbar Styling */
+#bloomcart-tab-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+#bloomcart-tab-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+#bloomcart-tab-content::-webkit-scrollbar-thumb {
+  background: #7CB342;
+  border-radius: 10px;
+}
+
+#bloomcart-tab-content::-webkit-scrollbar-thumb:hover {
+  background: #558B2F;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  #bloomcart-tab-content {
+    width: 90vw;
+    max-width: 350px;
+  }
+
+  #bloomcart-plant-container {
+    width: 100px;
+    height: 100px;
+    bottom: 180px;
+  }
+}
