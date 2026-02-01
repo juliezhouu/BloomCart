@@ -3,8 +3,9 @@
  * Direct OpenRouter/Gemini integration for product sustainability analysis
  */
 
-const OPENROUTER_API_KEY = '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';
+const OPENROUTER_API_KEY = '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';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const BACKEND_API_URL = 'http://localhost:3000/api';
 
 /**
  * Listen for messages from content scripts and popup
@@ -364,6 +365,36 @@ function getFrameChange(grade) {
 }
 
 /**
+ * Save product to MongoDB via backend API
+ */
+async function saveProductToMongoDB(product) {
+  const response = await fetch(`${BACKEND_API_URL}/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Backend API error: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Fallback: Save to local storage
+ */
+async function saveToLocalStorage(product) {
+  return new Promise(resolve => {
+    chrome.storage.local.get(['detailedAnalyses'], (result) => {
+      const analyses = result.detailedAnalyses || {};
+      analyses[product.asin] = product;
+      chrome.storage.local.set({ detailedAnalyses: analyses }, resolve);
+    });
+  });
+}
+
+/**
  * Store a product in the cart items list
  */
 function storeCartItem(product) {
@@ -379,6 +410,23 @@ function storeCartItem(product) {
       chrome.storage.local.set({ cartItems: items }, resolve);
     });
   });
+}
+
+/**
+ * Save plant state to MongoDB
+ */
+async function savePlantStateToMongoDB(userId, plantState) {
+  const response = await fetch(`${BACKEND_API_URL}/plant/state`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, plantState })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Plant state save failed: ${response.status}`);
+  }
+
+  return await response.json();
 }
 
 /**
@@ -400,29 +448,33 @@ async function handleAnalyzeProduct(data, sendResponse) {
     const product = buildProduct(scrapedData, analysis);
     product.detailedAnalysis = true;
 
-    // Save detailed analysis so cart sync can use it (handles race condition)
-    if (product.asin && product.asin !== 'unknown') {
-      chrome.storage.local.get(['detailedAnalyses', 'cartItems'], (result) => {
-        // Always save to detailedAnalyses map for future cart syncs
-        const analyses = result.detailedAnalyses || {};
-        analyses[product.asin] = product;
-        chrome.storage.local.set({ detailedAnalyses: analyses });
-
-        // Also update cartItems immediately if the item is already there
-        const items = result.cartItems || [];
-        const idx = items.findIndex(i => i.asin === product.asin);
-        if (idx >= 0) {
-          // Preserve price from cart scrape if product page analysis lacks it
-          if (!product.price && items[idx].price) {
-            product.price = items[idx].price;
-          }
-          items[idx] = product;
-          chrome.storage.local.set({ cartItems: items });
-          console.log('BloomCart SW: Updated cart item with detailed analysis:', product.asin, 'score:', product.overallScore);
-          updatePlantFromCart(items);
-        }
-      });
+    // Save to MongoDB via backend API
+    try {
+      await saveProductToMongoDB(product);
+      console.log('BloomCart SW: Saved to MongoDB:', product.asin, 'score:', product.overallScore);
+    } catch (dbError) {
+      console.warn('BloomCart SW: MongoDB save failed, using local storage:', dbError.message);
+      // Fallback to local storage if backend is down
+      await saveToLocalStorage(product);
     }
+
+    // Also update local cache for immediate access
+    chrome.storage.local.get(['detailedAnalyses', 'cartItems'], (result) => {
+      const analyses = result.detailedAnalyses || {};
+      analyses[product.asin] = product;
+      chrome.storage.local.set({ detailedAnalyses: analyses });
+
+      const items = result.cartItems || [];
+      const idx = items.findIndex(i => i.asin === product.asin);
+      if (idx >= 0) {
+        if (!product.price && items[idx].price) {
+          product.price = items[idx].price;
+        }
+        items[idx] = product;
+        chrome.storage.local.set({ cartItems: items });
+        updatePlantFromCart(items);
+      }
+    });
 
     sendResponse({ success: true, product });
   } catch (error) {
@@ -558,6 +610,23 @@ async function handleTrackPurchase(data, sendResponse) {
     const { userId, product } = data;
     if (!userId || !product) throw new Error('Missing data');
 
+    // Save purchase to MongoDB
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/purchases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, product })
+      });
+
+      if (!response.ok) {
+        console.warn('BloomCart SW: MongoDB purchase save failed');
+      } else {
+        console.log('BloomCart SW: Purchase saved to MongoDB');
+      }
+    } catch (dbError) {
+      console.warn('BloomCart SW: Backend unavailable for purchase tracking:', dbError.message);
+    }
+
     const score = product.overallScore || 50;
     let frameChange = 0;
     if (score >= 80) frameChange = 15;
@@ -571,6 +640,11 @@ async function handleTrackPurchase(data, sendResponse) {
       state.currentFrame = Math.max(0, Math.min(100, state.currentFrame + frameChange));
       state.totalPurchases = (state.totalPurchases || 0) + 1;
       if (score >= 60) state.sustainablePurchases = (state.sustainablePurchases || 0) + 1;
+
+      // Save plant state to MongoDB
+      savePlantStateToMongoDB(userId, state).catch(err => 
+        console.warn('PlantState MongoDB save failed:', err.message)
+      );
 
       chrome.storage.local.set({ plantState: state }, () => {
         sendResponse({ success: true, plantState: state });

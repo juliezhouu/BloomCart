@@ -4,8 +4,6 @@ import { logger } from '../utils/logger.js';
 export const connectDatabase = async () => {
   try {
     const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,

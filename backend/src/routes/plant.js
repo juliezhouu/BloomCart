@@ -101,4 +101,72 @@ router.post('/plant-state/update', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/plant/state
+ * Save plant state from extension
+ */
+router.post('/plant/state', async (req, res) => {
+  try {
+    const { userId, plantState } = req.body;
+
+    if (!userId || !plantState) {
+      return res.status(400).json({ error: 'Missing userId or plantState' });
+    }
+
+    let state = await PlantState.findOne({ userId });
+
+    if (!state) {
+      state = new PlantState({ userId });
+    }
+
+    // Update state
+    state.currentFrame = plantState.currentFrame;
+    state.totalPurchases = plantState.totalPurchases || 0;
+    state.sustainablePurchases = plantState.sustainablePurchases || 0;
+
+    await state.save();
+
+    logger.info('Plant state saved from extension', { userId, frame: state.currentFrame });
+
+    res.json({ success: true, plantState: state });
+
+  } catch (error) {
+    logger.error('Plant state save error:', error);
+    res.status(500).json({ error: 'Failed to save plant state', details: error.message });
+  }
+});
+
+/**
+ * POST /api/purchases
+ * Track purchase from extension
+ */
+router.post('/purchases', async (req, res) => {
+  try {
+    const { userId, product } = req.body;
+
+    if (!userId || !product) {
+      return res.status(400).json({ error: 'Missing userId or product' });
+    }
+
+    const purchase = new Purchase({
+      userId,
+      asin: product.asin || 'unknown',
+      productTitle: product.title || 'Unknown Product',
+      rating: product.rating || { grade: 'C', score: 0 },
+      carbonFootprint: product.carbonFootprint || { co2e: 0, source: 'unknown' },
+      frameChange: product.rating?.frameChange || 0
+    });
+
+    await purchase.save();
+
+    logger.info('Purchase tracked from extension', { userId, asin: product.asin });
+
+    res.json({ success: true, purchase });
+
+  } catch (error) {
+    logger.error('Purchase tracking error:', error);
+    res.status(500).json({ error: 'Failed to track purchase', details: error.message });
+  }
+});
+
 export default router;

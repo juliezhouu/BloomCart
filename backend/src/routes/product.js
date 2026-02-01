@@ -206,4 +206,54 @@ router.get('/product-rating/:asin', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/products
+ * Store product data directly from extension (already analyzed)
+ */
+router.post('/products', async (req, res) => {
+  try {
+    const { product } = req.body;
+
+    if (!product || !product.asin) {
+      return res.status(400).json({ error: 'Missing product data' });
+    }
+
+    // Check if already exists
+    const existing = await Product.findOne({ asin: product.asin.toUpperCase() });
+    
+    if (existing) {
+      logger.info('Product already in database', { asin: product.asin });
+      return res.json({ product: existing, updated: false });
+    }
+
+    // Save new product
+    const productDoc = new Product({
+      asin: product.asin.toUpperCase(),
+      title: product.title,
+      brand: product.brand,
+      carbonFootprint: product.carbonFootprint,
+      rating: product.rating,
+      overallScore: product.overallScore,
+      environmental: product.environmental,
+      social: product.social,
+      economic: product.economic,
+      grade: product.grade,
+      sustainabilityData: product.sustainabilityData || {},
+      metadata: { 
+        source: 'extension',
+        createdAt: new Date()
+      }
+    });
+
+    await productDoc.save();
+    logger.info('Product saved to MongoDB from extension', { asin: product.asin });
+
+    res.json({ product: productDoc, updated: true });
+
+  } catch (error) {
+    logger.error('Product storage error:', error);
+    res.status(500).json({ error: 'Failed to store product', details: error.message });
+  }
+});
+
 export default router;
