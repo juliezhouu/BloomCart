@@ -1,7 +1,9 @@
 /**
  * BloomCart Popup Styles
- * Modern design matching Figma mockup with JavaScript animations
+ * Modern design with improved accessibility and readability
  */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
 * {
   margin: 0;
@@ -12,9 +14,11 @@
 body {
   width: 420px;
   min-height: 600px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: linear-gradient(180deg, #E8F5E9 0%, #F1F8F4 100%);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .popup-container {
@@ -28,9 +32,10 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
+  padding: 16px 20px;
   background: linear-gradient(135deg, #C8E6C9 0%, #A5D6A7 100%);
   border-bottom: 1px solid rgba(76, 175, 80, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .header-actions {
@@ -47,8 +52,8 @@ body {
 
 .leaf-icon {
   fill: #2E7D32;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   animation: gentle-sway 3s ease-in-out infinite;
 }
 
@@ -58,10 +63,11 @@ body {
 }
 
 .logo h1 {
-  font-size: 24px;
+  font-size: 18px;
   color: #2E7D32;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  font-family: 'Poppins', sans-serif;
 }
 
 .status-badge {
@@ -118,22 +124,24 @@ body {
 
 /* Current Product */
 .current-product {
-  padding: 20px;
+  padding: 16px 20px;
   background: white;
   border-bottom: 1px solid #E0E0E0;
 }
 
 .current-product h2 {
-  font-size: 16px;
+  font-size: 15px;
   color: #1a1a1a;
   font-weight: 600;
-  margin-bottom: 5px;
-  line-height: 1.4;
+  margin-bottom: 6px;
+  line-height: 1.5;
+  font-family: 'Poppins', sans-serif;
 }
 
 .current-product p {
   font-size: 13px;
-  color: #757575;
+  color: #616161;
+  line-height: 1.4;
 }
 
 /* Cart Items Section */
@@ -149,7 +157,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  background: #F5F5F5;
+  background: #F8F9FA;
   border-bottom: 1px solid #E0E0E0;
   position: sticky;
   top: 0;
@@ -160,6 +168,9 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: #2E7D32;
+  font-family: 'Poppins', sans-serif;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 .cart-items-count {
@@ -257,9 +268,10 @@ body {
 
 /* Score Section */
 .score-section {
-  padding: 30px 20px;
+  padding: 24px 20px;
   text-align: center;
   background: white;
+  border-bottom: 1px solid #E0E0E0;
 }
 
 .score-badge {
@@ -315,16 +327,19 @@ body {
 }
 
 #score-label {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 600;
   color: #2E7D32;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
+  font-family: 'Poppins', sans-serif;
+  letter-spacing: -0.2px;
 }
 
 #score-tier {
-  font-size: 14px;
-  color: #757575;
-  margin-bottom: 20px;
+  font-size: 13px;
+  color: #616161;
+  margin-bottom: 18px;
+  font-weight: 500;
 }
 
 /* Tier Progress Bar */
@@ -377,26 +392,28 @@ body {
 
 .details-toggle {
   width: 100%;
-  padding: 16px 20px;
+  padding: 14px 20px;
   background: none;
   border: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #2E7D32;
-  font-family: inherit;
+  font-family: 'Poppins', sans-serif;
   transition: background 0.2s ease;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 .details-toggle:hover {
-  background: #F5F5F5;
+  background: #F8F9FA;
 }
 
 .details-toggle span {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .chevron {
@@ -425,7 +442,7 @@ body {
   display: flex;
   justify-content: space-between;
   padding: 12px 0;
-  border-bottom: 1px solid #F5F5F5;
+  border-bottom: 1px solid #F0F0F0;
 }
 
 .detail-item:last-child {
@@ -434,21 +451,23 @@ body {
 
 .detail-label {
   font-size: 13px;
-  color: #757575;
+  color: #616161;
+  font-weight: 500;
 }
 
 .detail-value {
   font-size: 13px;
   font-weight: 600;
   color: #2E7D32;
+  font-family: 'Poppins', sans-serif;
 }
 
 /* Flower Garden */
 .flower-garden {
   position: relative;
-  padding: 40px 20px;
+  padding: 32px 20px;
   background: linear-gradient(180deg, #F1F8F4 0%, #E8F5E9 100%);
-  min-height: 250px;
+  min-height: 240px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -498,11 +517,14 @@ body {
 }
 
 .garden-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: #2E7D32;
   margin-bottom: 10px;
   z-index: 10;
+  font-family: 'Poppins', sans-serif;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .preview-btn {
