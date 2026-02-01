@@ -69,6 +69,16 @@ function initializeUI() {
 
     updateScoreDisplay(tier, health);
     updateTierProgress(tier);
+    
+    // Initialize sustainability details (will be updated when cart loads)
+    chrome.storage.local.get(['cartItems'], (result) => {
+      const items = result.cartItems || [];
+      if (items.length > 0) {
+        updateSustainabilityDetails(items);
+      } else {
+        updateSustainabilityDetails([]);
+      }
+    });
 
     // Try to get current product from active tab
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -106,6 +116,8 @@ function loadCartItems() {
     } else {
       document.getElementById('product-title').textContent = 'No items in cart';
       document.getElementById('product-brand').textContent = 'Add products to Amazon cart';
+      // Initialize sustainability details with empty values
+      updateSustainabilityDetails([]);
     }
   });
 
@@ -182,7 +194,6 @@ function displayCartItems(items) {
           <span class="cart-item-title">${truncate(item.title, 50)}</span>
           <div class="cart-item-meta">
             <span class="cart-item-score">${item.overallScore}/100</span>
-            ${item.price ? `<span class="cart-item-price">${item.price}</span>` : ''}
           </div>
         </div>
       </div>
@@ -202,6 +213,12 @@ function displayCartItems(items) {
   if (plantImage) {
     setPlantStage(avgScore);
   }
+
+  // Update dashboard with cart items
+  updateDashboard(items);
+  
+  // Update sustainability details with totals
+  updateSustainabilityDetails(items);
 }
 
 /**
@@ -226,12 +243,6 @@ function setupEventListeners() {
   cartButton.addEventListener('click', () => {
     // Open Amazon cart in a new tab
     chrome.tabs.create({ url: 'https://www.amazon.com/gp/cart/view.html' });
-  });
-
-  // Preview button
-  const previewBtn = document.getElementById('preview-btn');
-  previewBtn.addEventListener('click', () => {
-    animatePlantGrowth(15);
   });
 }
 
@@ -331,15 +342,40 @@ function displayProductInfo(product) {
   if (product.environmental !== undefined) {
     document.getElementById('detail-environmental').textContent = `${product.environmental}%`;
   }
-  if (product.social !== undefined) {
-    document.getElementById('detail-social').textContent = `${product.social}%`;
-  }
-  if (product.economic !== undefined) {
-    document.getElementById('detail-economic').textContent = `${product.economic}%`;
-  }
-  if (product.carbonFootprint && product.carbonFootprint.co2e) {
-    document.getElementById('detail-carbon').textContent = `${product.carbonFootprint.co2e.toFixed(2)} kg CO2e`;
-  }
+  
+  // Get cart items and calculate totals
+  chrome.storage.local.get(['cartItems'], (result) => {
+    const cartItems = result.cartItems || [];
+    
+    // Calculate total cost
+    const totalCost = cartItems.reduce((sum, item) => {
+      const price = parseFloat((item.price || '0').replace(/[^0-9.]/g, ''));
+      return sum + price;
+    }, 0);
+    document.getElementById('detail-cost').textContent = `$${totalCost.toFixed(2)}`;
+    
+    // Calculate total carbon
+    const totalCarbon = cartItems.reduce((sum, item) => {
+      const carbon = item.sustainabilityData?.carbonFootprint || item.carbonFootprint?.co2e || 0;
+      return sum + parseFloat(carbon);
+    }, 0);
+    document.getElementById('detail-carbon').textContent = `${totalCarbon.toFixed(2)} kg CO2e`;
+    
+    // Calculate total energy
+    const totalEnergy = cartItems.reduce((sum, item) => {
+      const carbon = item.sustainabilityData?.carbonFootprint || item.carbonFootprint?.co2e || 0;
+      return sum + (parseFloat(carbon) * 0.5);
+    }, 0);
+    document.getElementById('detail-energy').textContent = `${totalEnergy.toFixed(1)} kWh`;
+    
+    // Calculate total water
+    const totalWater = cartItems.reduce((sum, item) => {
+      const carbon = item.sustainabilityData?.carbonFootprint || item.carbonFootprint?.co2e || 1;
+      const waterMultiplier = 75;
+      return sum + (carbon * waterMultiplier);
+    }, 0);
+    document.getElementById('detail-water').textContent = `${Math.round(totalWater)} L`;
+  });
 
   if (product.overallScore !== undefined) {
     const tier = getTier(product.overallScore);
@@ -480,6 +516,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       const newItems = changes.cartItems.newValue;
       if (newItems && newItems.length > 0) {
         displayCartItems(newItems);
+        updateDashboard(newItems);
       }
     }
   }
@@ -502,5 +539,280 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         animatePlantWithering(Math.abs(frameChange));
       }
     }
+  }
+});
+
+/**
+ * Dashboard Functions
+ */
+
+/**
+ * Update the dashboard with cart item metrics
+ */
+function updateDashboard(items) {
+  if (!items || items.length === 0) {
+    document.getElementById('dashboard-section').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('dashboard-section').style.display = 'block';
+
+  // Calculate aggregate metrics from cart items
+  const metrics = calculateAggregateMetrics(items);
+  
+  // Draw pie chart
+  drawImpactPieChart(metrics);
+  
+  // Update metric cards
+  updateMetricCards(metrics);
+}
+
+/**
+ * Calculate aggregate sustainability metrics from cart items
+ */
+function calculateAggregateMetrics(items) {
+  const totalCarbon = items.reduce((sum, item) => {
+    const carbon = item.sustainabilityData?.carbonFootprint || 0;
+    return sum + parseFloat(carbon);
+  }, 0);
+
+  const totalWater = items.reduce((sum, item) => {
+    // Estimate water usage based on category and carbon
+    const carbon = item.sustainabilityData?.carbonFootprint || 1;
+    const waterMultiplier = getWaterMultiplier(item.category);
+    return sum + (carbon * waterMultiplier);
+  }, 0);
+
+  const totalEnergy = items.reduce((sum, item) => {
+    // Estimate energy based on carbon (roughly 0.5 kWh per kg CO2)
+    const carbon = item.sustainabilityData?.carbonFootprint || 0;
+    return sum + (parseFloat(carbon) * 0.5);
+  }, 0);
+
+  const avgRecyclability = items.reduce((sum, item) => {
+    const recyclability = item.sustainabilityData?.recyclability || 30;
+    return sum + recyclability;
+  }, 0) / items.length;
+
+  return {
+    carbon: totalCarbon.toFixed(2),
+    water: Math.round(totalWater),
+    energy: totalEnergy.toFixed(1),
+    recyclability: Math.round(avgRecyclability),
+    breakdown: {
+      carbon: 30,
+      water: 20,
+      energy: 20,
+      transport: 15,
+      packaging: 10,
+      other: 5
+    }
+  };
+}
+
+/**
+ * Get water usage multiplier based on product category
+ */
+function getWaterMultiplier(category) {
+  const multipliers = {
+    'clothing': 150,
+    'textiles': 150,
+    'food': 100,
+    'electronics': 50,
+    'furniture': 80,
+    'default': 75
+  };
+
+  const cat = (category || '').toLowerCase();
+  for (const [key, value] of Object.entries(multipliers)) {
+    if (cat.includes(key)) return value;
+  }
+  return multipliers.default;
+}
+
+/**
+ * Draw pie chart showing sustainability impact breakdown
+ */
+function drawImpactPieChart(metrics) {
+  const canvas = document.getElementById('impact-pie-chart');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = 80;
+
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Data for pie chart
+  const data = [
+    { label: 'Carbon', value: metrics.breakdown.carbon, color: '#FF6B6B' },
+    { label: 'Water', value: metrics.breakdown.water, color: '#4DABF7' },
+    { label: 'Energy', value: metrics.breakdown.energy, color: '#FFD43B' },
+    { label: 'Transport', value: metrics.breakdown.transport, color: '#A78BFA' },
+    { label: 'Packaging', value: metrics.breakdown.packaging, color: '#51CF66' },
+    { label: 'Other', value: metrics.breakdown.other, color: '#ADB5BD' }
+  ];
+
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  let currentAngle = -Math.PI / 2; // Start at top
+
+  // Draw pie slices
+  data.forEach((item, index) => {
+    const sliceAngle = (item.value / total) * 2 * Math.PI;
+
+    // Draw slice
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
+    ctx.closePath();
+    ctx.fillStyle = item.color;
+    ctx.fill();
+
+    // Add border
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    currentAngle += sliceAngle;
+  });
+
+  // Draw center circle (donut effect)
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius * 0.5, 0, 2 * Math.PI);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+
+  // Add total score text in center
+  ctx.fillStyle = '#2E7D32';
+  ctx.font = 'bold 24px Poppins, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(metrics.recyclability + '%', centerX, centerY);
+  ctx.font = '10px Poppins, sans-serif';
+  ctx.fillStyle = '#757575';
+  ctx.fillText('Sustainable', centerX, centerY + 16);
+
+  // Update legend
+  updateChartLegend(data);
+}
+
+/**
+ * Update chart legend with data
+ */
+function updateChartLegend(data) {
+  const legend = document.getElementById('chart-legend');
+  if (!legend) return;
+
+  legend.innerHTML = data.map(item => `
+    <div class="legend-item">
+      <div class="legend-color" style="background: ${item.color};"></div>
+      <span class="legend-label">${item.label}</span>
+      <span class="legend-value">${item.value}%</span>
+    </div>
+  `).join('');
+}
+
+/**
+ * Update metric cards with calculated values
+ */
+function updateMetricCards(metrics) {
+  // Update values
+  document.getElementById('metric-carbon').textContent = `${metrics.carbon} kg`;
+  document.getElementById('metric-water').textContent = `${metrics.water} L`;
+  document.getElementById('metric-energy').textContent = `${metrics.energy} kWh`;
+  document.getElementById('metric-recycle').textContent = `${metrics.recyclability}%`;
+
+  // Update progress bars (animated)
+  const maxCarbon = 50; // kg
+  const maxWater = 5000; // L
+  const maxEnergy = 100; // kWh
+
+  const carbonPercent = Math.min((parseFloat(metrics.carbon) / maxCarbon) * 100, 100);
+  const waterPercent = Math.min((parseFloat(metrics.water) / maxWater) * 100, 100);
+  const energyPercent = Math.min((parseFloat(metrics.energy) / maxEnergy) * 100, 100);
+
+  // Animate bars
+  setTimeout(() => {
+    document.getElementById('carbon-bar').style.width = `${carbonPercent}%`;
+    document.getElementById('water-bar').style.width = `${waterPercent}%`;
+    document.getElementById('energy-bar').style.width = `${energyPercent}%`;
+    document.getElementById('recycle-bar').style.width = `${metrics.recyclability}%`;
+  }, 100);
+}
+
+/**
+ * Update sustainability details with cart totals
+ */
+function updateSustainabilityDetails(cartItems) {
+  console.log('Updating sustainability details with items:', cartItems);
+  
+  if (!cartItems || cartItems.length === 0) {
+    // Set default values when no items
+    document.getElementById('detail-cost').textContent = '$0.00';
+    document.getElementById('detail-carbon').textContent = '0 kg CO2e';
+    document.getElementById('detail-energy').textContent = '0 kWh';
+    document.getElementById('detail-water').textContent = '0 L';
+    return;
+  }
+  
+  // Calculate total cost
+  const totalCost = cartItems.reduce((sum, item) => {
+    const priceStr = item.price || '0';
+    const price = parseFloat(priceStr.toString().replace(/[^0-9.]/g, ''));
+    console.log('Item price:', item.title, priceStr, '->', price);
+    return sum + (isNaN(price) ? 0 : price);
+  }, 0);
+  document.getElementById('detail-cost').textContent = `$${totalCost.toFixed(2)}`;
+  console.log('Total cost:', totalCost);
+  
+  // Calculate total carbon
+  const totalCarbon = cartItems.reduce((sum, item) => {
+    const carbon = item.sustainabilityData?.carbonFootprint || 
+                   item.carbonFootprint?.co2e || 
+                   item.co2e || 0;
+    const carbonNum = parseFloat(carbon);
+    console.log('Item carbon:', item.title, carbon, '->', carbonNum);
+    return sum + (isNaN(carbonNum) ? 0 : carbonNum);
+  }, 0);
+  document.getElementById('detail-carbon').textContent = `${totalCarbon.toFixed(2)} kg CO2e`;
+  console.log('Total carbon:', totalCarbon);
+  
+  // Calculate total energy
+  const totalEnergy = cartItems.reduce((sum, item) => {
+    const carbon = item.sustainabilityData?.carbonFootprint || 
+                   item.carbonFootprint?.co2e || 
+                   item.co2e || 0;
+    const carbonNum = parseFloat(carbon);
+    return sum + (isNaN(carbonNum) ? 0 : carbonNum * 0.5);
+  }, 0);
+  document.getElementById('detail-energy').textContent = `${totalEnergy.toFixed(1)} kWh`;
+  console.log('Total energy:', totalEnergy);
+  
+  // Calculate total water
+  const totalWater = cartItems.reduce((sum, item) => {
+    const carbon = item.sustainabilityData?.carbonFootprint || 
+                   item.carbonFootprint?.co2e || 
+                   item.co2e || 1;
+    const carbonNum = parseFloat(carbon) || 1;
+    const waterMultiplier = 75;
+    return sum + (carbonNum * waterMultiplier);
+  }, 0);
+  document.getElementById('detail-water').textContent = `${Math.round(totalWater)} L`;
+  console.log('Total water:', totalWater);
+}
+
+/**
+ * Setup dashboard toggle
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  const dashboardHeader = document.querySelector('.dashboard-header');
+  const dashboardSection = document.getElementById('dashboard-section');
+
+  if (dashboardHeader) {
+    dashboardHeader.addEventListener('click', () => {
+      dashboardSection.classList.toggle('collapsed');
+    });
   }
 });

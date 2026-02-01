@@ -89,25 +89,47 @@ function parseJSON(text) {
  * Analyze a single product using OpenRouter/Gemini
  */
 async function analyzeProductWithAI(scrapedData) {
-  const prompt = `You are a sustainability expert analyzing an Amazon product. Return ONLY valid JSON with no markdown formatting.
+  const prompt = `You are a sustainability and lifecycle analysis expert analyzing an Amazon product. Return ONLY valid JSON with no markdown formatting.
 
 Product: ${scrapedData.title}
 Brand: ${scrapedData.brand || 'Unknown'}
 Category: ${scrapedData.category || 'General'}
-Description: ${(scrapedData.description || '').substring(0, 300)}
+Description: ${(scrapedData.description || '').substring(0, 500)}
+Product Details: ${JSON.stringify(scrapedData.details || {}).substring(0, 300)}
 
 Return this exact JSON structure:
-{"overallScore":<number 0-100>,"environmental":<number 0-100>,"social":<number 0-100>,"economic":<number 0-100>,"grade":"<A or B or C or D or E>","co2e":<estimated kg CO2e number>,"reasoning":"<1 sentence>"}
+{
+  "overallScore": <number 0-100>,
+  "environmental": <number 0-100>,
+  "social": <number 0-100>,
+  "economic": <number 0-100>,
+  "grade": "<A or B or C or D or E>",
+  "co2e": <estimated kg CO2e for full product lifecycle>,
+  "waterLiters": <estimated liters of water used in production>,
+  "energyKwh": <estimated kWh of energy for production>,
+  "recyclabilityPercent": <0-100 based on material composition>,
+  "primaryMaterials": ["<material1>", "<material2>"],
+  "productCategory": "<one of: electronics, clothing, furniture, food, books, toys, beauty, kitchen, sports, home, office, default>",
+  "estimatedWeightKg": <product weight in kg>,
+  "percentileRanking": {
+    "overall": <0-100 percentile vs similar products in category>,
+    "carbon": <0-100>,
+    "water": <0-100>,
+    "energy": <0-100>,
+    "recyclability": <0-100>
+  },
+  "reasoning": "<1-2 sentences>"
+}
 
-IMPORTANT scoring guidelines - be realistic and varied:
-- Organic/eco-friendly/sustainable/bamboo/recycled products: 70-95 overall
-- Reusable/durable/high-quality products: 55-80 overall
-- Standard consumer goods: 35-55 overall
-- Electronics with rare earth materials: 20-50 overall
-- Fast fashion/disposable/single-use plastic: 10-35 overall
-- Grade mapping: A=80-100, B=60-79, C=40-59, D=20-39, E=0-19
-- Make environmental, social, and economic scores vary independently based on the product
-- co2e should reflect realistic carbon footprint in kg
+IMPORTANT guidelines:
+- co2e: realistic lifecycle carbon footprint in kg CO2e (materials + manufacturing + end-of-life)
+- waterLiters: total water footprint (e.g., cotton t-shirt ~2700L, smartphone ~12000L, book ~400L, plastic bottle ~7L)
+- energyKwh: manufacturing energy (e.g., smartphone ~70kWh, t-shirt ~15kWh, book ~2kWh, chair ~25kWh)
+- recyclabilityPercent: based on actual materials (aluminum=95, glass=90, steel=90, metal=85, cardboard=80, paper=75, wood=65, electronic=50, plastic=40, textile=30, mixed=20)
+- percentileRanking: 50 = average for this product category, 80+ = among most sustainable, <20 = among least sustainable
+- estimatedWeightKg: estimate from product title/description
+- Scoring: Organic/eco/sustainable=70-95, Reusable/durable=55-80, Standard goods=35-55, Electronics=20-50, Fast fashion/disposable=10-35
+- Grade: A=80-100, B=60-79, C=40-59, D=20-39, E=0-19
 
 Return ONLY the JSON object, nothing else.`;
 
@@ -126,21 +148,35 @@ Return ONLY the JSON object, nothing else.`;
 async function analyzeCartItemsWithAI(items) {
   const itemList = items.map((item, i) => `${i + 1}. "${item.title}"`).join('\n');
 
-  const prompt = `You are a sustainability expert. Analyze these ${items.length} Amazon cart products. Return ONLY a valid JSON array with no markdown.
+  const prompt = `You are a sustainability and lifecycle analysis expert. Analyze these ${items.length} Amazon cart products. Return ONLY a valid JSON array with no markdown.
 
 Products:
 ${itemList}
 
 Return a JSON array with exactly ${items.length} objects, one per product in order:
-[{"title":"<short title>","overallScore":<0-100>,"environmental":<0-100>,"social":<0-100>,"economic":<0-100>,"grade":"<A-E>","co2e":<kg number>,"reasoning":"<brief>"}]
+[{
+  "title": "<short title>",
+  "overallScore": <0-100>,
+  "environmental": <0-100>,
+  "social": <0-100>,
+  "economic": <0-100>,
+  "grade": "<A-E>",
+  "co2e": <kg CO2e number>,
+  "waterLiters": <liters>,
+  "energyKwh": <kWh>,
+  "recyclabilityPercent": <0-100>,
+  "primaryMaterials": ["<material1>"],
+  "productCategory": "<electronics|clothing|furniture|food|books|toys|beauty|kitchen|sports|home|office|default>",
+  "estimatedWeightKg": <kg>,
+  "percentileRanking": {"overall":<0-100>,"carbon":<0-100>,"water":<0-100>,"energy":<0-100>,"recyclability":<0-100>},
+  "reasoning": "<brief>"
+}]
 
-Scoring - be realistic and VARY scores significantly between different products:
-- Organic/eco/sustainable: 70-95
-- Reusable/durable goods: 55-80
-- Standard consumer goods: 35-55
-- Electronics: 20-50
-- Fast fashion/disposable: 10-35
+Scoring - be realistic and VARY scores between different products:
+- Organic/eco/sustainable: 70-95, Reusable/durable: 55-80, Standard goods: 35-55, Electronics: 20-50, Fast fashion/disposable: 10-35
 - Grade: A=80-100, B=60-79, C=40-59, D=20-39, E=0-19
+- recyclabilityPercent: based on materials (aluminum=95, glass=90, plastic=40, textile=30, mixed=20)
+- percentileRanking: 50=average for category
 
 Return ONLY the JSON array.`;
 
@@ -210,6 +246,59 @@ function fallbackAnalysis(scrapedData) {
 
   const co2e = parseFloat(((100 - baseScore) * 0.08 + Math.abs(v2) * 0.1).toFixed(2));
 
+  // Determine product category from title keywords
+  let productCategory = 'default';
+  if (title.match(/laptop|computer|tablet|monitor|phone|smartphone|earbuds|headphone|watch|smartwatch/)) productCategory = 'electronics';
+  else if (title.match(/shirt|dress|clothing|shoes|sneaker|hoodie|cotton|linen|wool/)) productCategory = 'clothing';
+  else if (title.match(/furniture|sofa|desk|chair|table/)) productCategory = 'furniture';
+  else if (title.match(/food|snack|vitamin|supplement|protein/)) productCategory = 'food';
+  else if (title.match(/book|kindle|journal|notebook/)) productCategory = 'books';
+  else if (title.match(/toy|game|lego|puzzle/)) productCategory = 'toys';
+  else if (title.match(/cream|serum|lotion|makeup|beauty|skincare/)) productCategory = 'beauty';
+  else if (title.match(/kitchen|blender|toaster|microwave|cookware|pan|pot/)) productCategory = 'kitchen';
+
+  // Estimate water and energy from category averages
+  const categoryWaterMultipliers = {
+    electronics: 50, clothing: 150, furniture: 80, food: 100,
+    books: 30, toys: 60, beauty: 60, kitchen: 50, default: 75
+  };
+  const waterMultiplier = categoryWaterMultipliers[productCategory] || 75;
+  const waterLiters = Math.round(co2e * waterMultiplier);
+  const energyKwh = parseFloat((co2e * (productCategory === 'electronics' ? 0.8 : 0.5)).toFixed(1));
+
+  // Estimate recyclability from title keywords
+  let recyclabilityPercent = 30;
+  if (title.match(/aluminum|aluminium/)) recyclabilityPercent = 95;
+  else if (title.match(/glass/)) recyclabilityPercent = 90;
+  else if (title.match(/steel|metal/)) recyclabilityPercent = 88;
+  else if (title.match(/cardboard|paper/)) recyclabilityPercent = 78;
+  else if (title.match(/wood|bamboo/)) recyclabilityPercent = 65;
+  else if (title.match(/plastic/)) recyclabilityPercent = 40;
+  else if (title.match(/textile|fabric|cotton|polyester/)) recyclabilityPercent = 30;
+  else recyclabilityPercent = 35 + ((hash * 11) % 30); // 35-64 varied
+
+  // Estimate weight from category
+  const categoryWeights = {
+    electronics: 1.5, clothing: 0.4, furniture: 12.0, food: 0.8,
+    books: 0.6, toys: 1.2, beauty: 0.25, kitchen: 2.0, default: 1.0
+  };
+  const estimatedWeightKg = categoryWeights[productCategory] || 1.0;
+
+  // Primary materials from keyword detection
+  const primaryMaterials = [];
+  const materialKeywords = ['plastic', 'metal', 'wood', 'glass', 'paper', 'aluminum', 'steel', 'textile', 'cotton', 'leather', 'rubber', 'cardboard', 'bamboo', 'ceramic'];
+  for (const mat of materialKeywords) {
+    if (title.includes(mat)) primaryMaterials.push(mat);
+  }
+  if (primaryMaterials.length === 0) primaryMaterials.push('mixed');
+
+  // Derive percentile from score (maps 0-100 score to approximately bell-curve percentile)
+  const overallPercentile = Math.max(1, Math.min(99, Math.round(baseScore)));
+  const carbonPercentile = Math.max(1, Math.min(99, Math.round(baseScore + v2)));
+  const waterPercentile = Math.max(1, Math.min(99, Math.round(baseScore + v3)));
+  const energyPercentile = Math.max(1, Math.min(99, Math.round(baseScore + v4)));
+  const recyclabilityPercentile = Math.max(1, Math.min(99, recyclabilityPercent));
+
   return {
     overallScore: Math.round(baseScore),
     environmental: Math.round(environmental),
@@ -217,6 +306,19 @@ function fallbackAnalysis(scrapedData) {
     economic: Math.round(economic),
     grade,
     co2e,
+    waterLiters,
+    energyKwh,
+    recyclabilityPercent: Math.round(recyclabilityPercent),
+    primaryMaterials,
+    productCategory,
+    estimatedWeightKg,
+    percentileRanking: {
+      overall: overallPercentile,
+      carbon: carbonPercentile,
+      water: waterPercentile,
+      energy: energyPercentile,
+      recyclability: recyclabilityPercentile
+    },
     reasoning: 'Estimated based on product type and materials'
   };
 }
@@ -225,6 +327,7 @@ function fallbackAnalysis(scrapedData) {
  * Build a product object from analysis results
  */
 function buildProduct(scrapedData, analysis) {
+  const co2e = analysis.co2e || 3;
   return {
     asin: scrapedData.asin || 'unknown',
     title: scrapedData.title || analysis.title || 'Unknown Product',
@@ -235,13 +338,22 @@ function buildProduct(scrapedData, analysis) {
     social: Math.max(0, Math.min(100, Math.round(analysis.social))),
     economic: Math.max(0, Math.min(100, Math.round(analysis.economic))),
     grade: analysis.grade || 'C',
-    carbonFootprint: { co2e: analysis.co2e || 3, source: 'openrouter_gemini' },
+    carbonFootprint: { co2e, source: 'openrouter_gemini' },
     rating: {
       grade: analysis.grade || 'C',
-      score: analysis.co2e || 3,
+      score: co2e,
       description: analysis.reasoning || '',
       frameChange: getFrameChange(analysis.grade || 'C')
-    }
+    },
+    sustainabilityData: {
+      waterUsage: analysis.waterLiters || Math.round(co2e * 75),
+      energyUsage: analysis.energyKwh || parseFloat((co2e * 0.5).toFixed(1)),
+      recyclability: analysis.recyclabilityPercent || null,
+      primaryMaterials: analysis.primaryMaterials || [],
+      productCategory: analysis.productCategory || 'default',
+      estimatedWeightKg: analysis.estimatedWeightKg || 1.0
+    },
+    percentileRanking: analysis.percentileRanking || null
   };
 }
 

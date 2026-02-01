@@ -4,6 +4,12 @@
   "version": "1.0.1",
   "description": "Gamify sustainable shopping with real-time carbon footprint ratings and plant growth animations",
 
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+
   "permissions": [
     "storage",
     "tabs",
@@ -59,6 +65,11 @@
   ],
 
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
   }
 }

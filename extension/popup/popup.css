@@ -358,27 +358,31 @@ body {
   transition: all 0.5s ease;
 }
 
-.tier-bar.active {
-  background: linear-gradient(90deg, #EF5350 0%, #E53935 100%);
-}
-
 .tier-bar.tier-1.active {
-  background: linear-gradient(90deg, #EF5350 0%, #E53935 100%);
+  background: linear-gradient(90deg, #8D6E63 0%, #5D4037 100%);
 }
 
 .tier-bar.tier-2.active {
-  background: linear-gradient(90deg, #FF9800 0%, #F57C00 100%);
+  background: linear-gradient(90deg, #EF5350 0%, #E53935 100%);
 }
 
 .tier-bar.tier-3.active {
-  background: linear-gradient(90deg, #FDD835 0%, #F9A825 100%);
+  background: linear-gradient(90deg, #FF9800 0%, #F57C00 100%);
 }
 
 .tier-bar.tier-4.active {
-  background: linear-gradient(90deg, #66BB6A 0%, #43A047 100%);
+  background: linear-gradient(90deg, #FDD835 0%, #F9A825 100%);
 }
 
 .tier-bar.tier-5.active {
+  background: linear-gradient(90deg, #9CCC65 0%, #7CB342 100%);
+}
+
+.tier-bar.tier-6.active {
+  background: linear-gradient(90deg, #66BB6A 0%, #43A047 100%);
+}
+
+.tier-bar.tier-7.active {
   background: linear-gradient(90deg, #4CAF50 0%, #388E3C 100%);
 }
 
@@ -580,6 +584,259 @@ body {
 
 .cart-button svg {
   fill: white;
+}
+
+/* Dashboard Section */
+.dashboard-section {
+  margin: 16px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: slideIn 0.3s ease;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #F1F8F4 0%, #E8F5E9 100%);
+  border-bottom: 1px solid #E0E0E0;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.dashboard-header:hover {
+  background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+}
+
+.dashboard-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2E7D32;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-toggle {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.dashboard-toggle:hover {
+  background: rgba(46, 125, 50, 0.1);
+}
+
+.dashboard-toggle svg {
+  fill: #2E7D32;
+  transition: transform 0.3s ease;
+}
+
+.dashboard-section.collapsed .dashboard-toggle svg {
+  transform: rotate(-90deg);
+}
+
+.dashboard-content {
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+  transition: max-height 0.3s ease;
+}
+
+.dashboard-section.collapsed .dashboard-content {
+  max-height: 0;
+  padding: 0 20px;
+  overflow: hidden;
+}
+
+/* Chart Container */
+.chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #F9FBF9 0%, #F1F8F4 100%);
+  border-radius: 12px;
+}
+
+#impact-pie-chart {
+  max-width: 200px;
+  max-height: 200px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-color {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.legend-label {
+  color: #616161;
+  font-weight: 500;
+}
+
+.legend-value {
+  color: #2E7D32;
+  font-weight: 600;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.metric-card {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.carbon-card:hover {
+  border-color: #FF6B6B;
+  background: linear-gradient(135deg, #FFF5F5 0%, white 100%);
+}
+
+.water-card:hover {
+  border-color: #4DABF7;
+  background: linear-gradient(135deg, #F0F8FF 0%, white 100%);
+}
+
+.energy-card:hover {
+  border-color: #FFD43B;
+  background: linear-gradient(135deg, #FFFEF0 0%, white 100%);
+}
+
+.recycle-card:hover {
+  border-color: #51CF66;
+  background: linear-gradient(135deg, #F4FCF6 0%, white 100%);
+}
+
+.metric-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.metric-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #757575;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2E7D32;
+}
+
+.metric-progress {
+  height: 6px;
+  background: #E0E0E0;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.metric-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease, background 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.carbon-card .metric-bar {
+  background: linear-gradient(90deg, #FF6B6B 0%, #FA5252 100%);
+}
+
+.water-card .metric-bar {
+  background: linear-gradient(90deg, #4DABF7 0%, #339AF0 100%);
+}
+
+.energy-card .metric-bar {
+  background: linear-gradient(90deg, #FFD43B 0%, #FCC419 100%);
+}
+
+.recycle-card .metric-bar {
+  background: linear-gradient(90deg, #51CF66 0%, #37B24D 100%);
+}
+
+/* Shimmer effect for metric bars */
+.metric-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Footer */

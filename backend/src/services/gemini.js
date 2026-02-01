@@ -1,6 +1,10 @@
 import { logger } from '../utils/logger.js';
 import dotenv from 'dotenv';
+import SustainabilityScorer from './sustainabilityScorer.js';
 dotenv.config();
+
+// Initialize sustainability scorer
+const scorer = new SustainabilityScorer();
 
 // OpenRouter configuration for Gemini API
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
@@ -299,3 +303,71 @@ Return ONLY valid JSON, no other text.
       };
   }
 };
+
+/**
+ * Get comprehensive sustainability scoring for a product
+ * @param {Object} productData - Product data with title, category, weight, materials
+ * @returns {Object} Comprehensive scoring breakdown
+ */
+export const getComprehensiveSustainabilityScore = async (productData) => {
+  try {
+    logger.info('Calculating comprehensive sustainability score', { 
+      title: productData.title || productData.cleanedTitle 
+    });
+
+    // Prepare product object for scorer
+    const product = {
+      title: productData.cleanedTitle || productData.title,
+      category: productData.category,
+      weight: productData.weight?.value || 1,
+      description: productData.productDescription || productData.description || '',
+      origin: productData.origin || 'Unknown',
+      shipping: productData.shipping || 'standard',
+      materials: productData.materials || []
+    };
+
+    // Get comprehensive scores
+    const scoringResult = scorer.calculateOverallScore(product);
+
+    logger.info('Comprehensive scoring completed', { 
+      overallScore: scoringResult.overallScore,
+      grade: scoringResult.grade 
+    });
+
+    return {
+      success: true,
+      overallScore: scoringResult.overallScore,
+      grade: scoringResult.grade,
+      breakdown: scoringResult.breakdown,
+      metrics: scoringResult.metrics,
+      tier: getTierFromScore(scoringResult.overallScore)
+    };
+
+  } catch (error) {
+    logger.error('Error in comprehensive sustainability scoring', { error: error.message });
+    
+    // Return fallback scoring
+    return {
+      success: false,
+      overallScore: 50,
+      grade: 'C',
+      breakdown: null,
+      metrics: null,
+      tier: 3,
+      error: error.message
+    };
+  }
+};
+
+/**
+ * Helper: Get tier from overall score
+ */
+function getTierFromScore(score) {
+  if (score >= 90) return 7;
+  if (score >= 80) return 6;
+  if (score >= 70) return 5;
+  if (score >= 60) return 4;
+  if (score >= 50) return 3;
+  if (score >= 40) return 2;
+  return 1;
+}

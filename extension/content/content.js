@@ -13,6 +13,74 @@ let cartItems = new Set();
 let cartObserver = null;
 let lastCartCount = 0;
 
+// Helper data for metrics
+const LEARN_MORE_CONTENT = {
+  carbon: {
+    what: 'CO2 equivalent emissions from production, transport, and disposal',
+    how: 'Calculated based on materials, manufacturing, and shipping',
+    tip: 'Choose products with lower carbon footprint or local sourcing'
+  },
+  water: {
+    what: 'Total water used in production and processing',
+    how: 'Estimated from material type and manufacturing process',
+    tip: 'Look for water-efficient materials like recycled content'
+  },
+  energy: {
+    what: 'Energy consumed during manufacturing and transport',
+    how: 'Based on production methods and shipping distance',
+    tip: 'Products with renewable energy use have lower impact'
+  },
+  recyclability: {
+    what: 'How easily the product can be recycled at end of life',
+    how: 'Scored based on material composition and design',
+    tip: 'Choose products with single-material construction'
+  }
+};
+
+/**
+ * Get context string for metric values
+ */
+function getContextString(metric, value) {
+  if (metric === 'co2e') {
+    if (value < 1) return 'Very Low';
+    if (value < 5) return 'Low';
+    if (value < 20) return 'Moderate';
+    if (value < 50) return 'High';
+    return 'Very High';
+  } else if (metric === 'water') {
+    if (value < 50) return 'Very Low';
+    if (value < 200) return 'Low';
+    if (value < 500) return 'Moderate';
+    if (value < 1000) return 'High';
+    return 'Very High';
+  } else if (metric === 'energy') {
+    if (value < 5) return 'Very Low';
+    if (value < 20) return 'Low';
+    if (value < 50) return 'Moderate';
+    if (value < 100) return 'High';
+    return 'Very High';
+  } else if (metric === 'recyclability') {
+    if (value >= 80) return 'Excellent';
+    if (value >= 60) return 'Good';
+    if (value >= 40) return 'Fair';
+    if (value >= 20) return 'Poor';
+    return 'Very Poor';
+  }
+  return '';
+}
+
+/**
+ * Get ordinal suffix for numbers (1st, 2nd, 3rd, etc.)
+ */
+function ordinalSuffix(num) {
+  const j = num % 10;
+  const k = num % 100;
+  if (j === 1 && k !== 11) return num + 'st';
+  if (j === 2 && k !== 12) return num + 'nd';
+  if (j === 3 && k !== 13) return num + 'rd';
+  return num + 'th';
+}
+
 /**
  * Initialize BloomCart on Amazon pages (product pages and cart pages)
  */
@@ -468,6 +536,12 @@ async function analyzeCurrentProduct() {
   // Show loading state
   showFloatingTab({ loading: true });
 
+  // Set up timeout (30 seconds)
+  const timeout = setTimeout(() => {
+    console.error('BloomCart: Analysis timed out after 30 seconds');
+    showFloatingTab({ error: 'Analysis took too long. Please try again.' });
+  }, 30000);
+
   // Send to background script for analysis
   chrome.runtime.sendMessage(
     {
@@ -475,9 +549,11 @@ async function analyzeCurrentProduct() {
       data: { scrapedData }
     },
     (response) => {
+      clearTimeout(timeout);
+      
       if (chrome.runtime.lastError) {
         console.error('BloomCart: Error analyzing product', chrome.runtime.lastError);
-        showFloatingTab({ error: 'Failed to analyze product' });
+        showFloatingTab({ error: 'Failed to analyze product. Extension may need to be reloaded.' });
         return;
       }
 
@@ -486,10 +562,78 @@ async function analyzeCurrentProduct() {
         showFloatingTab({ product: response.product });
         console.log('BloomCart: Product analyzed', response.product);
       } else {
-        showFloatingTab({ error: response?.error || 'Analysis failed' });
+        const errorMsg = response?.error || 'Analysis failed';
+        console.error('BloomCart: Analysis error:', errorMsg);
+        showFloatingTab({ error: errorMsg });
       }
     }
   );
+}
+
+/**
+ * Get product percentiles from the product data
+ */
+function getProductPercentiles(product) {
+  return {
+    overall: product.percentile || product.overallScore || 50,
+    carbon: product.carbonPercentile || 50,
+    water: product.waterPercentile || 50,
+    energy: product.energyPercentile || 50,
+    recyclability: product.recyclabilityPercentile || 50
+  };
+}
+
+/**
+ * Build a metric card for the analytics tab
+ */
+function buildMetricCard(metricKey, label, value, unit, product) {
+  const percentiles = getProductPercentiles(product);
+  const pct = percentiles[metricKey] || 50;
+  const numValue = parseFloat(value) || 0;
+
+  // Context string and per-weight line
+  let contextStr = '';
+  let perWeightStr = '';
+  const weightKg = product.sustainabilityData?.estimatedWeightKg || 1.0;
+
+  if (metricKey === 'co2e' || metricKey === 'carbon') {
+    contextStr = getContextString('co2e', numValue);
+    if (weightKg > 0) perWeightStr = `${(numValue / weightKg).toFixed(1)} kg/kg product`;
+  } else if (metricKey === 'water') {
+    contextStr = getContextString('water', numValue);
+    if (weightKg > 0) perWeightStr = `${Math.round(numValue / weightKg)} L/kg product`;
+  } else if (metricKey === 'energy') {
+    contextStr = getContextString('energy', numValue);
+    if (weightKg > 0) perWeightStr = `${(numValue / weightKg).toFixed(1)} kWh/kg product`;
+  } else if (metricKey === 'recyclability') {
+    contextStr = getContextString('recyclability', numValue);
+    perWeightStr = '';
+  }
+
+  const learnMore = LEARN_MORE_CONTENT[metricKey] || {};
+
+  return `
+    <div class="metric-card-tab ${metricKey}-card-tab">
+      <div class="metric-info-tab">
+        <span class="metric-label-tab">${label}</span>
+        <span class="metric-value-tab">${value} ${unit}</span>
+        <span class="metric-context-tab">${contextStr}</span>
+        ${perWeightStr ? `<span class="metric-per-weight">${perWeightStr}</span>` : ''}
+        <span class="metric-percentile-badge">${ordinalSuffix(pct)} percentile</span>
+      </div>
+      <div class="metric-progress-tab">
+        <div class="metric-bar-tab ${metricKey}-bar-tab" style="width: ${pct}%;"></div>
+      </div>
+      <button class="learn-more-toggle" data-metric="${metricKey}">
+        Learn more <span class="learn-more-chevron">&#9662;</span>
+      </button>
+      <div class="learn-more-content" id="learn-more-${metricKey}" style="display:none;">
+        <p><strong>What it means:</strong> ${learnMore.what || ''}</p>
+        <p><strong>How it's calculated:</strong> ${learnMore.how || ''}</p>
+        <p><strong>Tip:</strong> ${learnMore.tip || ''}</p>
+      </div>
+    </div>
+  `;
 }
 
 /**
@@ -518,11 +662,17 @@ function showFloatingTab(options = {}) {
         <div class="bloomcart-error">
           <div class="error-icon">⚠️</div>
           <p>${options.error}</p>
-          <button class="retry-btn" onclick="window.location.reload()">Try Again</button>
+          <button class="retry-btn" id="bloomcart-retry-btn">Try Again</button>
         </div>
       </div>
     `;
     floatingTab.classList.add('expanded');
+
+    // Bind retry button (addEventListener instead of inline onclick)
+    const retryBtn = document.getElementById('bloomcart-retry-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => window.location.reload());
+    }
   } else if (options.product) {
     const product = options.product;
     const productScore = product.overallScore || 0;
@@ -550,15 +700,32 @@ function showFloatingTab(options = {}) {
           <button class="close-button" id="bloomcart-close-btn">×</button>
         </div>
 
-        <!-- Product Info -->
-        <div class="product-section">
-          <div class="product-details">
-            <h2 class="product-name">${product.title || 'Product Analysis'}</h2>
-            <p class="product-brand">${product.brand || 'Analyzing...'}</p>
-          </div>
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+          <button class="tab-btn active" id="tab-btn-overview">
+            <span class="tab-icon">🌱</span>
+            <span class="tab-label">Overview</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-analytics">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">Analytics</span>
+          </button>
         </div>
 
-        <!-- Score Badge - uses product score -->
+        <!-- Tab Content Container -->
+        <div class="tab-content-container">
+          
+          <!-- Overview Tab -->
+          <div class="tab-content active" id="overview-tab">
+            <!-- Product Info -->
+            <div class="product-section">
+              <div class="product-details">
+                <h2 class="product-name">${product.title || 'Product Analysis'}</h2>
+                <p class="product-brand">${product.brand || 'Analyzing...'}</p>
+              </div>
+            </div>
+
+            <!-- Score Badge - uses product score -->
         <div class="score-display">
           <div class="score-badge-large" style="background: ${gradeColor};">
             <span class="score-number-large">${productGrade}</span>
@@ -580,12 +747,11 @@ function showFloatingTab(options = {}) {
           <div class="garden-bg-tab"></div>
           <div id="tab-flower-container" class="tab-flower-container"></div>
           <h3 class="bloom-title-tab">Your Bloom</h3>
-          <p class="bloom-subtitle-tab">Cart Health: ${Math.round(health)}%</p>
         </div>
 
         <!-- Sustainability Details -->
         <div class="sustainability-section">
-          <button class="details-toggle" onclick="toggleSustainabilityDetails(this)">
+          <button class="details-toggle" id="bloomcart-details-toggle">
             <span class="details-title">Sustainability Details</span>
             <span class="toggle-icon">▼</span>
           </button>
@@ -625,10 +791,34 @@ function showFloatingTab(options = {}) {
         </div>
 
         <!-- Action Button -->
-        <button class="grow-garden-btn" onclick="handleGrowGarden()">
+        <button class="grow-garden-btn" id="bloomcart-grow-btn">
           <span class="btn-icon">🛒</span>
           Add to Cart & Grow Garden
         </button>
+          </div>
+
+          <!-- Analytics Tab -->
+          <div class="tab-content" id="analytics-tab">
+            <div class="analytics-header">
+              <h2 class="analytics-title">Impact Analytics</h2>
+              <p class="analytics-subtitle">Percentile ranking vs. similar products</p>
+            </div>
+
+            <!-- Percentile Ring Chart -->
+            <div class="chart-container-tab">
+              <canvas id="impact-pie-chart-tab" width="220" height="220"></canvas>
+            </div>
+
+            <!-- Metric Cards -->
+            <div class="metrics-grid-tab">
+              ${buildMetricCard('carbon', 'Carbon', product.carbonFootprint?.co2e?.toFixed(1) || '0', 'kg CO2e', product)}
+              ${buildMetricCard('water', 'Water', product.sustainabilityData?.waterUsage || Math.round((product.carbonFootprint?.co2e || 1) * 75), 'L', product)}
+              ${buildMetricCard('energy', 'Energy', product.sustainabilityData?.energyUsage?.toFixed(1) || ((product.carbonFootprint?.co2e || 1) * 0.5).toFixed(1), 'kWh', product)}
+              ${buildMetricCard('recyclability', 'Recyclability', product.sustainabilityData?.recyclability || calculateRecyclabilityFromMaterials(product.sustainabilityData?.primaryMaterials) || 50, '%', product)}
+            </div>
+          </div>
+
+        </div>
 
         <!-- Footer -->
         <div class="extension-footer">
@@ -654,27 +844,147 @@ function showFloatingTab(options = {}) {
       });
     }
 
-    // Add global toggle function
-    window.toggleSustainabilityDetails = function(button) {
-      const content = button.nextElementSibling;
-      const icon = button.querySelector('.toggle-icon');
+    // Tab switching via addEventListener (inline onclick doesn't work in content script isolated world)
+    function switchTab(tabName, clickedBtn) {
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
 
-      if (content.style.display === 'none') {
-        content.style.display = 'block';
-        icon.textContent = '▲';
-        button.classList.add('expanded');
-      } else {
-        content.style.display = 'none';
-        icon.textContent = '▼';
-        button.classList.remove('expanded');
+      const selectedTab = document.getElementById(tabName + '-tab');
+      if (selectedTab) {
+        selectedTab.classList.add('active');
       }
-    };
+      if (clickedBtn) {
+        clickedBtn.classList.add('active');
+      }
 
-    // Add global grow garden function
-    window.handleGrowGarden = function() {
-      handlePurchase(options.product);
-    };
+      if (tabName === 'analytics') {
+        setTimeout(() => drawTabPieChart(options.product), 100);
+      }
+    }
+
+    const overviewBtn = document.getElementById('tab-btn-overview');
+    const analyticsBtn = document.getElementById('tab-btn-analytics');
+    if (overviewBtn) {
+      overviewBtn.addEventListener('click', () => switchTab('overview', overviewBtn));
+    }
+    if (analyticsBtn) {
+      analyticsBtn.addEventListener('click', () => switchTab('analytics', analyticsBtn));
+    }
+
+    // Sustainability details toggle via addEventListener
+    const detailsToggle = document.getElementById('bloomcart-details-toggle');
+    if (detailsToggle) {
+      detailsToggle.addEventListener('click', () => {
+        const content = detailsToggle.nextElementSibling;
+        const icon = detailsToggle.querySelector('.toggle-icon');
+
+        if (content.style.display === 'none') {
+          content.style.display = 'block';
+          icon.textContent = '▲';
+          detailsToggle.classList.add('expanded');
+        } else {
+          content.style.display = 'none';
+          icon.textContent = '▼';
+          detailsToggle.classList.remove('expanded');
+        }
+      });
+    }
+
+    // Grow garden button via addEventListener
+    const growBtn = document.getElementById('bloomcart-grow-btn');
+    if (growBtn) {
+      growBtn.addEventListener('click', () => {
+        handlePurchase(options.product);
+      });
+    }
+
+    // Learn more toggle event listeners
+    document.querySelectorAll('.learn-more-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const metric = btn.getAttribute('data-metric');
+        const content = document.getElementById('learn-more-' + metric);
+        const chevron = btn.querySelector('.learn-more-chevron');
+        if (!content) return;
+        if (content.style.display === 'none') {
+          content.style.display = 'block';
+          chevron.style.transform = 'rotate(180deg)';
+          btn.classList.add('expanded');
+        } else {
+          content.style.display = 'none';
+          chevron.style.transform = 'rotate(0deg)';
+          btn.classList.remove('expanded');
+        }
+      });
+    });
+
+    // Draw percentile ring chart after a short delay for canvas to be ready
+    setTimeout(() => drawTabPieChart(product), 150);
   }
+}
+
+/**
+ * Draw percentile ring chart in floating tab
+ * Shows concentric arcs representing how this product compares to others
+ */
+function drawTabPieChart(product) {
+  const canvas = document.getElementById('impact-pie-chart-tab');
+  if (!canvas) return;
+
+  // Set canvas size for retina
+  const dpr = window.devicePixelRatio || 1;
+  const displaySize = 200;
+  canvas.width = displaySize * dpr;
+  canvas.height = displaySize * dpr;
+  canvas.style.width = displaySize + 'px';
+  canvas.style.height = displaySize + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, displaySize, displaySize);
+
+  const centerX = displaySize / 2;
+  const centerY = displaySize / 2;
+
+  // Get percentile data
+  const percentiles = getProductPercentiles(product);
+  const overallPct = percentiles.overall;
+
+  // Donut configuration
+  const radius = 70;
+  const lineWidth = 20;
+
+  // Draw background circle
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+  ctx.strokeStyle = '#E8E8E8';
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = 'butt';
+  ctx.stroke();
+
+  // Draw filled arc
+  const startAngle = -Math.PI / 2;
+  const endAngle = startAngle + (overallPct / 100) * 2 * Math.PI;
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+  ctx.strokeStyle = '#4CAF50';
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = 'butt';
+  ctx.stroke();
+
+  // Center text
+  ctx.fillStyle = '#2E7D32';
+  ctx.font = '600 24px Montserrat, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ordinalSuffix(overallPct), centerX, centerY - 6);
+  ctx.font = '400 11px Montserrat, Arial, sans-serif';
+  ctx.fillStyle = '#666';
+  ctx.fillText('percentile', centerX, centerY + 12);
 }
 
 /**
@@ -1192,6 +1502,7 @@ async function fetchCartItems() {
 
       // Skip if this container has promotional content
       if (itemContainer.querySelector('.a-alert, [class*="credit"], [class*="offer"]')) return;
+      const containerAsin = itemContainer.getAttribute('data-asin') || asin;
       if (containerAsin !== asin && seen.has(containerAsin)) return;
 
       const item = extractItem(itemContainer, asin);

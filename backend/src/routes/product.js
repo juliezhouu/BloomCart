@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
-import { cleanProductData, estimateCarbonFootprint } from '../services/gemini.js';
+import { cleanProductData, estimateCarbonFootprint, getComprehensiveSustainabilityScore } from '../services/gemini.js';
 import { calculateCarbonFootprint } from '../services/climatiq.js';
 import { calculateRating, convertToKg } from '../services/rating.js';
 import { logger } from '../utils/logger.js';
@@ -58,42 +58,68 @@ router.post('/analyze-product', async (req, res) => {
 
     const rating = calculateRating(carbonResult.co2e, weightInKg);
 
-    // Step 4: Calculate overall sustainability score (0-100) and component scores
-    // Convert grade to 0-100 scale for frontend
-    const gradeToScore = {
-      'A': 90,  // Excellent
-      'B': 75,  // Good
-      'C': 50,  // Average
-      'D': 30,  // Poor
-      'E': 15   // Very Poor
-    };
-    const overallScore = gradeToScore[rating.grade] || 50;
+    // Step 4: Get comprehensive sustainability scoring
+    logger.info('Calculating comprehensive sustainability metrics', { asin: scrapedData.asin });
+    const comprehensiveScore = await getComprehensiveSustainabilityScore({
+      ...cleanedData,
+      carbonFootprint: carbonResult.co2e
+    });
 
-    // Calculate component scores based on overall score and materials
-    const hasRecyclableMaterials = cleanedData.materials.some(m =>
-      ['paper', 'glass', 'metal', 'aluminum'].includes(m.toLowerCase())
-    );
-    const hasSustainableMaterials = cleanedData.materials.some(m =>
-      ['cotton', 'wood', 'bamboo', 'organic'].includes(m.toLowerCase())
-    );
-    const hasPlasticMaterials = cleanedData.materials.some(m =>
-      ['plastic', 'polyester', 'pvc'].includes(m.toLowerCase())
-    );
+    // Use comprehensive score if available, otherwise fallback to basic scoring
+    let overallScore, environmental, social, economic, sustainabilityBreakdown, detailedMetrics;
 
-    // Environmental score: heavily influenced by carbon footprint and materials
-    let environmental = overallScore;
-    if (hasRecyclableMaterials) environmental += 5;
-    if (hasSustainableMaterials) environmental += 10;
-    if (hasPlasticMaterials) environmental -= 15;
-    environmental = Math.max(0, Math.min(100, environmental));
+    if (comprehensiveScore.success) {
+      overallScore = comprehensiveScore.overallScore;
+      
+      // Map breakdown to component scores
+      environmental = Math.round((
+        comprehensiveScore.breakdown.carbon.score * 0.4 +
+        comprehensiveScore.breakdown.water.score * 0.3 +
+        comprehensiveScore.breakdown.energy.score * 0.3
+      ));
+      
+      social = Math.round((
+        comprehensiveScore.breakdown.transport.score * 0.5 +
+        comprehensiveScore.breakdown.packaging.score * 0.5
+      ));
+      
+      economic = Math.round((
+        comprehensiveScore.breakdown.endOfLife.score * 0.6 +
+        comprehensiveScore.breakdown.packaging.score * 0.4
+      ));
 
-    // Social score: moderate correlation with sustainability
-    let social = overallScore - 5 + (Math.random() * 10 - 5); // Slight variation
-    social = Math.max(0, Math.min(100, social));
+      sustainabilityBreakdown = comprehensiveScore.breakdown;
+      detailedMetrics = comprehensiveScore.metrics;
 
-    // Economic score: based on sustainability (sustainable often = better quality/longevity)
-    let economic = overallScore - 10 + (Math.random() * 15 - 7.5);
-    economic = Math.max(0, Math.min(100, economic));
+    } else {
+      // Fallback to basic scoring
+      const gradeToScore = {
+        'A': 90, 'B': 75, 'C': 50, 'D': 30, 'E': 15
+      };
+      overallScore = gradeToScore[rating.grade] || 50;
+
+      const hasRecyclableMaterials = cleanedData.materials.some(m =>
+        ['paper', 'glass', 'metal', 'aluminum'].includes(m.toLowerCase())
+      );
+      const hasSustainableMaterials = cleanedData.materials.some(m =>
+        ['cotton', 'wood', 'bamboo', 'organic'].includes(m.toLowerCase())
+      );
+      const hasPlasticMaterials = cleanedData.materials.some(m =>
+        ['plastic', 'polyester', 'pvc'].includes(m.toLowerCase())
+      );
+
+      environmental = overallScore;
+      if (hasRecyclableMaterials) environmental += 5;
+      if (hasSustainableMaterials) environmental += 10;
+      if (hasPlasticMaterials) environmental -= 15;
+      environmental = Math.max(0, Math.min(100, environmental));
+
+      social = Math.max(0, Math.min(100, overallScore - 5 + (Math.random() * 10 - 5)));
+      economic = Math.max(0, Math.min(100, overallScore - 10 + (Math.random() * 15 - 7.5)));
+
+      sustainabilityBreakdown = null;
+      detailedMetrics = null;
+    }
 
     // Step 5: Create product object with frontend-compatible format
     const productData = {
@@ -115,6 +141,17 @@ router.post('/analyze-product', async (req, res) => {
       environmental: Math.round(environmental),
       social: Math.round(social),
       economic: Math.round(economic),
+      grade: comprehensiveScore.grade || rating.grade,
+      // Add detailed sustainability data
+      sustainabilityData: {
+        carbonFootprint: carbonResult.co2e,
+        waterUsage: detailedMetrics?.waterUsage || null,
+        energyUsage: detailedMetrics?.energyUsage || null,
+        recyclability: detailedMetrics?.recyclability || null,
+        transportDistance: detailedMetrics?.transportDistance || null,
+        packagingType: detailedMetrics?.packagingType || null,
+        breakdown: sustainabilityBreakdown
+      },
       metadata: {
         scrapedData: scrapedData
       }
