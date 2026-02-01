@@ -3,38 +3,38 @@ import { logger } from '../utils/logger.js';
 /**
  * Calculate sustainability rating based on CO2e per kg
  *
- * Rating Scale:
- * A: < 2 kg CO2e/kg (Excellent)
- * B: 2-5 kg CO2e/kg (Good)
- * C: 5-10 kg CO2e/kg (Average)
- * D: 10-20 kg CO2e/kg (Poor)
- * E: > 20 kg CO2e/kg (Very Poor)
+ * Rating Scale (Updated for better distribution):
+ * A: < 1 kg CO2e/kg (Excellent)
+ * B: 1-3 kg CO2e/kg (Good)
+ * C: 3-6 kg CO2e/kg (Average)
+ * D: 6-12 kg CO2e/kg (Poor)
+ * E: > 12 kg CO2e/kg (Very Poor)
  */
 export const calculateRating = (co2e, weightInKg) => {
   const score = co2e / weightInKg;
 
   let grade, description, frameChange;
 
-  if (score < 2) {
+  if (score < 1) {
     grade = 'A';
     description = 'Excellent - Low carbon footprint';
-    frameChange = 10;
-  } else if (score < 5) {
+    frameChange = 15;
+  } else if (score < 3) {
     grade = 'B';
     description = 'Good - Below average emissions';
-    frameChange = 5;
-  } else if (score < 10) {
+    frameChange = 10;
+  } else if (score < 6) {
     grade = 'C';
     description = 'Average - Moderate carbon impact';
-    frameChange = -5;
-  } else if (score < 20) {
+    frameChange = 0;
+  } else if (score < 12) {
     grade = 'D';
     description = 'Poor - High carbon emissions';
-    frameChange = -10;
+    frameChange = -15;
   } else {
     grade = 'E';
     description = 'Very Poor - Significant environmental impact';
-    frameChange = -15;
+    frameChange = -20;
   }
 
   logger.info('Rating calculated', { grade, score, frameChange });
@@ -66,11 +66,11 @@ export const getRatingColor = (grade) => {
  */
 export const getFrameProgression = (grade) => {
   const progressions = {
-    'A': 10,
-    'B': 5,
-    'C': -5,
-    'D': -10,
-    'E': -15
+    'A': 15,
+    'B': 10,
+    'C': 0,
+    'D': -15,
+    'E': -20
   };
   return progressions[grade];
 };

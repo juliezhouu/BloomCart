@@ -1,7 +1,11 @@
 /**
  * BloomCart Popup Script
- * Displays plant stats and recent activity
+ * Displays cart items with sustainability scores and plant animation
  */
+
+let currentPlantState = null;
+let currentProductRating = null;
+let plantImage = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('BloomCart Popup: Initializing...');
@@ -13,106 +17,445 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   console.log('BloomCart Popup: Loaded state', { plantState, userId });
 
-  if (plantState) {
-    displayPlantStats(plantState);
-  } else {
-    console.warn('BloomCart Popup: No plant state found');
+  currentPlantState = plantState || {
+    currentFrame: 50,
+    totalPurchases: 0,
+    sustainablePurchases: 0,
+    totalCartItems: 0,
+    sustainableCartItems: 0
+  };
+
+  // Get plant image reference
+  plantImage = document.getElementById('plant-image');
+
+  if (plantImage) {
+    setPlantStage(currentPlantState.currentFrame);
   }
+
+  // Initialize UI
+  initializeUI();
+
+  // Setup event listeners
+  setupEventListeners();
+
+  // Load cart items
+  loadCartItems();
 });
 
 /**
- * Display plant statistics
+ * Initialize UI with current state
  */
-function displayPlantStats(plantState) {
-  // Plant health (current frame as percentage)
-  const healthElement = document.getElementById('plant-health');
-  healthElement.textContent = `${plantState.currentFrame}%`;
+function initializeUI() {
+  try {
+    const health = currentPlantState.currentFrame || 50;
+    const tier = getTier(health);
 
-  // Total purchases
-  const totalPurchasesElement = document.getElementById('total-purchases');
-  totalPurchasesElement.textContent = plantState.totalPurchases || 0;
+    updateScoreDisplay(tier, health);
+    updateTierProgress(tier);
 
-  // Sustainable purchases
-  const sustainablePurchasesElement = document.getElementById('sustainable-purchases');
-  sustainablePurchasesElement.textContent = plantState.sustainablePurchases || 0;
-
-  // Progress bar
-  const progressElement = document.getElementById('plant-progress');
-  progressElement.style.width = `${plantState.currentFrame}%`;
-
-  // Recent activity
-  if (plantState.history && plantState.history.length > 0) {
-    displayRecentActivity(plantState.history);
+    // Try to get current product from active tab
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0] && tabs[0].url && tabs[0].url.includes('amazon.com')) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'getProductInfo' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.log('BloomCart: Could not reach content script:', chrome.runtime.lastError.message);
+            return;
+          }
+          if (response && response.product) {
+            currentProductRating = response.product;
+            displayProductInfo(response.product);
+          }
+        });
+      }
+    });
+  } catch (error) {
+    console.error('BloomCart: Error initializing UI:', error);
   }
-
-  console.log('BloomCart Popup: Stats displayed', plantState);
 }
 
 /**
- * Display recent purchase activity
+ * Load cart items from storage and optionally from active tab
  */
-function displayRecentActivity(history) {
-  const activityList = document.getElementById('activity-list');
-  activityList.innerHTML = '';
+function loadCartItems() {
+  // Load cached cart items from storage
+  chrome.storage.local.get(['cartItems'], (result) => {
+    const cartItems = result.cartItems || [];
+    if (cartItems.length > 0) {
+      displayCartItems(cartItems);
+    } else {
+      // Show helpful message
+      document.getElementById('product-title').textContent = 'No items in cart yet';
+      document.getElementById('product-brand').textContent = 'Add products on Amazon to track sustainability';
+    }
+  });
 
-  // Show last 5 activities
-  const recentHistory = history.slice(-5).reverse();
-
-  const ratingColors = {
-    'A': '#00C851',
-    'B': '#7CB342',
-    'C': '#FFD600',
-    'D': '#FF9800',
-    'E': '#F44336'
-  };
-
-  recentHistory.forEach((activity) => {
-    const activityItem = document.createElement('div');
-    activityItem.className = 'activity-item';
-
-    const timeAgo = getTimeAgo(new Date(activity.timestamp));
-    const changeClass = activity.frameChange > 0 ? 'positive' : 'negative';
-    const changeText = activity.frameChange > 0
-      ? `+${activity.frameChange} frames`
-      : `${activity.frameChange} frames`;
-
-    activityItem.innerHTML = `
-      <div class="activity-rating" style="background-color: ${ratingColors[activity.rating]}">
-        ${activity.rating}
-      </div>
-      <div class="activity-details">
-        <div class="activity-time">${timeAgo}</div>
-        <div class="activity-change ${changeClass}">${changeText}</div>
-      </div>
-    `;
-
-    activityList.appendChild(activityItem);
+  // Also try to get fresh cart items from the active tab
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0] && tabs[0].url && tabs[0].url.includes('amazon.com')) {
+      chrome.tabs.sendMessage(tabs[0].id, { action: 'getCartItems' }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (response && response.items && response.items.length > 0) {
+          // Analyze fresh cart items via service worker
+          chrome.runtime.sendMessage(
+            { action: 'analyzeCartItems', data: { items: response.items } },
+            (analysisResponse) => {
+              if (analysisResponse && analysisResponse.success && analysisResponse.cartItems.length > 0) {
+                displayCartItems(analysisResponse.cartItems);
+              }
+            }
+          );
+        }
+      });
+    }
   });
 }
 
 /**
- * Get time ago string
+ * Display cart items in the popup
  */
-function getTimeAgo(date) {
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
+function displayCartItems(items) {
+  if (!items || items.length === 0) return;
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-  return date.toLocaleDateString();
+  const section = document.getElementById('cart-items-section');
+  const list = document.getElementById('cart-items-list');
+  const countEl = document.getElementById('cart-items-count');
+
+  section.style.display = 'block';
+  countEl.textContent = items.length;
+
+  // Update header text
+  document.getElementById('product-title').textContent = `${items.length} item${items.length !== 1 ? 's' : ''} in cart`;
+  document.getElementById('product-brand').textContent = 'Sustainability analysis below';
+
+  // Render each cart item
+  list.innerHTML = items.map(item => {
+    const gradeColor = getGradeColor(item.grade);
+    return `
+      <div class="cart-item">
+        <div class="cart-item-grade" style="background: ${gradeColor};">${item.grade}</div>
+        <div class="cart-item-info">
+          <span class="cart-item-title">${truncate(item.title, 50)}</span>
+          <div class="cart-item-meta">
+            <span class="cart-item-score">${item.overallScore}/100</span>
+            ${item.price ? `<span class="cart-item-price">${item.price}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Calculate and display average score
+  const avgScore = Math.round(items.reduce((sum, item) => sum + item.overallScore, 0) / items.length);
+  document.getElementById('cart-avg-score').textContent = `${avgScore}/100`;
+
+  // Update the overall score display based on average
+  const tier = getTier(avgScore);
+  updateScoreDisplay(tier, avgScore);
+  updateTierProgress(tier);
+
+  // Update plant based on average
+  if (plantImage) {
+    setPlantStage(avgScore);
+  }
+}
+
+/**
+ * Setup event listeners
+ */
+function setupEventListeners() {
+  // Close button
+  const closeBtn = document.getElementById('close-btn');
+  closeBtn.addEventListener('click', () => {
+    window.close();
+  });
+
+  // Details toggle
+  const detailsToggle = document.getElementById('details-toggle');
+  const sustainabilityDetails = document.getElementById('sustainability-details');
+  detailsToggle.addEventListener('click', () => {
+    sustainabilityDetails.classList.toggle('collapsed');
+  });
+
+  // Cart button
+  const cartButton = document.getElementById('cart-button');
+  cartButton.addEventListener('click', () => {
+    // Open Amazon cart in a new tab
+    chrome.tabs.create({ url: 'https://www.amazon.com/gp/cart/view.html' });
+  });
+
+  // Preview button
+  const previewBtn = document.getElementById('preview-btn');
+  previewBtn.addEventListener('click', () => {
+    animatePlantGrowth(15);
+  });
+}
+
+/**
+ * Get grade color
+ */
+function getGradeColor(grade) {
+  const colors = {
+    'A': '#4CAF50',
+    'B': '#7CB342',
+    'C': '#FDD835',
+    'D': '#FF9800',
+    'E': '#EF5350'
+  };
+  return colors[grade] || '#9E9E9E';
+}
+
+/**
+ * Truncate text
+ */
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+/**
+ * Get tier from health percentage (7-tier system)
+ */
+function getTier(health) {
+  if (health >= 85) return 7;
+  if (health >= 70) return 6;
+  if (health >= 55) return 5;
+  if (health >= 40) return 4;
+  if (health >= 25) return 3;
+  if (health >= 10) return 2;
+  return 1;
+}
+
+/**
+ * Get tier label (7-tier system)
+ */
+function getTierLabel(tier) {
+  const labels = ['Withered', 'Seedling', 'Sprout', 'Growing', 'Healthy', 'Thriving', 'Blooming'];
+  return labels[tier - 1] || 'Unknown';
+}
+
+/**
+ * Update score display
+ */
+function updateScoreDisplay(tier, health) {
+  const scoreNumber = document.getElementById('score-number');
+  const scoreLabel = document.getElementById('score-label');
+  const scoreTier = document.getElementById('score-tier');
+  const scoreCircle = document.querySelector('.score-circle');
+
+  scoreNumber.textContent = tier;
+  scoreLabel.textContent = getTierLabel(tier);
+  scoreTier.textContent = `Tier ${tier} of 7`;
+
+  const colors = [
+    'linear-gradient(135deg, #8D6E63 0%, #5D4037 100%)',
+    'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
+    'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
+    'linear-gradient(135deg, #FDD835 0%, #F9A825 100%)',
+    'linear-gradient(135deg, #9CCC65 0%, #7CB342 100%)',
+    'linear-gradient(135deg, #66BB6A 0%, #43A047 100%)',
+    'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)'
+  ];
+
+  scoreCircle.style.background = colors[tier - 1];
+}
+
+/**
+ * Update tier progress bar
+ */
+function updateTierProgress(tier) {
+  const tierBars = document.querySelectorAll('.tier-bar');
+  tierBars.forEach((bar, index) => {
+    if (index < tier) {
+      bar.classList.add('active');
+    } else {
+      bar.classList.remove('active');
+    }
+  });
+}
+
+/**
+ * Display product information (for single product view)
+ */
+function displayProductInfo(product) {
+  const productTitle = document.getElementById('product-title');
+  const productBrand = document.getElementById('product-brand');
+
+  productTitle.textContent = product.title || 'Current Product';
+  productBrand.textContent = product.brand || 'Analyzing...';
+
+  if (product.environmental !== undefined) {
+    document.getElementById('detail-environmental').textContent = `${product.environmental}%`;
+  }
+  if (product.social !== undefined) {
+    document.getElementById('detail-social').textContent = `${product.social}%`;
+  }
+  if (product.economic !== undefined) {
+    document.getElementById('detail-economic').textContent = `${product.economic}%`;
+  }
+  if (product.carbonFootprint && product.carbonFootprint.co2e) {
+    document.getElementById('detail-carbon').textContent = `${product.carbonFootprint.co2e.toFixed(2)} kg CO2e`;
+  }
+
+  if (product.overallScore !== undefined) {
+    const tier = getTier(product.overallScore);
+    updateScoreDisplay(tier, product.overallScore);
+    updateTierProgress(tier);
+  }
+}
+
+/**
+ * Get plant stage from health percentage (7 stages total)
+ */
+function getPlantStage(health) {
+  if (health >= 85) return 7;
+  if (health >= 70) return 6;
+  if (health >= 55) return 5;
+  if (health >= 40) return 4;
+  if (health >= 25) return 3;
+  if (health >= 10) return 2;
+  return 1;
+}
+
+/**
+ * Set plant image to specific stage
+ */
+function setPlantStage(health) {
+  if (!plantImage) return;
+
+  const stage = getPlantStage(health);
+  const imagePath = chrome.runtime.getURL(`assets/images/plant-stages/plant-stage-${stage}.jpg`);
+
+  plantImage.classList.add('changing');
+  setTimeout(() => {
+    plantImage.src = imagePath;
+    plantImage.classList.remove('changing');
+  }, 300);
+}
+
+/**
+ * Animate plant growth
+ */
+function animatePlantGrowth(healthIncrease = 15) {
+  if (!plantImage) return;
+
+  const currentHealth = currentPlantState.currentFrame || 50;
+  const newHealth = Math.min(100, currentHealth + healthIncrease);
+
+  setPlantStage(newHealth);
+
+  currentPlantState.currentFrame = newHealth;
+  chrome.storage.local.set({ plantState: currentPlantState });
+}
+
+/**
+ * Animate plant withering
+ */
+function animatePlantWithering(healthDecrease = 20) {
+  if (!plantImage) return;
+
+  const currentHealth = currentPlantState.currentFrame || 50;
+  const newHealth = Math.max(0, currentHealth - healthDecrease);
+
+  setPlantStage(newHealth);
+
+  currentPlantState.currentFrame = newHealth;
+  chrome.storage.local.set({ plantState: currentPlantState });
+}
+
+/**
+ * Get frame change based on rating grade
+ */
+function getFrameChangeForGrade(grade) {
+  return { 'A': 15, 'B': 10, 'C': 0, 'D': -15, 'E': -20 }[grade] || 0;
+}
+
+/**
+ * Update plant when plant state changes
+ */
+function updatePlant(newHealth) {
+  const oldHealth = currentPlantState.currentFrame || 50;
+  const healthChange = Math.abs(newHealth - oldHealth);
+
+  if (newHealth > oldHealth) {
+    animatePlantGrowth(healthChange);
+  } else if (newHealth < oldHealth) {
+    animatePlantWithering(healthChange);
+  } else {
+    setPlantStage(newHealth);
+  }
+
+  currentPlantState.currentFrame = newHealth;
+
+  const tier = getTier(newHealth);
+  updateScoreDisplay(tier, newHealth);
+  updateTierProgress(tier);
+}
+
+/**
+ * Show notification
+ */
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? '#4CAF50' : '#2196F3'};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 10000;
+    font-size: 14px;
+    animation: slideIn 0.3s ease-out;
+  `;
+  notification.textContent = message;
+
+  document.body.appendChild(notification);
+
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease-in';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
 }
 
 /**
  * Listen for storage changes to update UI in real-time
  */
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && changes.plantState) {
-    console.log('BloomCart Popup: Plant state updated', changes.plantState.newValue);
-    displayPlantStats(changes.plantState.newValue);
+  if (areaName === 'local') {
+    if (changes.plantState) {
+      const newState = changes.plantState.newValue;
+      if (newState.currentFrame !== currentPlantState.currentFrame) {
+        updatePlant(newState.currentFrame);
+      }
+      currentPlantState = newState;
+    }
+    if (changes.cartItems) {
+      const newItems = changes.cartItems.newValue;
+      if (newItems && newItems.length > 0) {
+        displayCartItems(newItems);
+      }
+    }
+  }
+});
+
+/**
+ * Listen for messages from content script
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'productAnalyzed') {
+    currentProductRating = message.product;
+    displayProductInfo(message.product);
+  } else if (message.action === 'cartItemAdded') {
+    if (message.product && message.product.grade) {
+      const frameChange = getFrameChangeForGrade(message.product.grade);
+      if (frameChange > 0) {
+        animatePlantGrowth(frameChange);
+        showNotification('Great choice! Your plant grew!', 'success');
+      } else if (frameChange < 0) {
+        animatePlantWithering(Math.abs(frameChange));
+      }
+    }
   }
 });

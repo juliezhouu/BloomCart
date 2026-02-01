@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BloomCart Plant Animation Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+</head>
+<body>
+    <h1>BloomCart Plant Animation Test</h1>
+    <div id="animation-container" style="width: 300px; height: 300px; border: 1px solid #ccc;"></div>
+    
+    <script>
+        async function testAnimation() {
+            try {
+                console.log('Loading plant animation...');
+                
+                // Fetch the JSON animation data
+                const response = await fetch('./extension/ui/lottie/plant.json');
+                const animationData = await response.json();
+                
+                console.log('Animation data loaded:', animationData);
+                
+                // Create animation
+                const animation = lottie.loadAnimation({
+                    container: document.getElementById('animation-container'),
+                    renderer: 'svg',
+                    loop: true,
+                    autoplay: true,
+                    animationData: animationData
+                });
+                
+                animation.addEventListener('DOMLoaded', () => {
+                    console.log('✅ Plant animation loaded successfully!');
+                });
+                
+                animation.addEventListener('error', (error) => {
+                    console.error('❌ Animation error:', error);
+                });
+                
+            } catch (error) {
+                console.error('❌ Failed to load animation:', error);
+            }
+        }
+        
+        testAnimation();
+    </script>
+</body>
+</html>

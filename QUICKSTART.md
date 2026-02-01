@@ -1,105 +1,179 @@
-# BloomCart Quick Start Guide 🚀
+# BloomCart Quick Start Guide
 
-Get BloomCart running in under 10 minutes!
+## ✅ Code Fixes Applied
 
-## Step 1: Set Up MongoDB (5 minutes)
+The following issues have been fixed:
+- ✅ Data format mismatch between frontend and backend
+- ✅ Product schema updated with sustainability scores
+- ✅ Brand extraction added to Amazon scraper
+- ✅ Rating calculation now returns all required fields
 
-1. Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-2. Sign up for a free account
-3. Create a free cluster (M0)
-4. Click "Connect" → "Connect your application"
-5. Copy the connection string
-6. Open `backend/.env` and replace:
-   ```env
-   MONGODB_URI=mongodb+srv://YOUR_USERNAME:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/bloomcart
-   ```
-   with your connection string
+## 🚀 Quick Start (3 Steps)
 
-## Step 2: Get Climatiq API Key (2 minutes)
-
-1. Go to [Climatiq](https://www.climatiq.io/)
-2. Sign up for a free account
-3. Go to API Keys section
-4. Copy your API key
-5. Open `backend/.env` and replace:
-   ```env
-   CLIMATIQ_API_KEY=YOUR_CLIMATIQ_KEY_HERE
-   ```
-   with your API key
-
-Your Gemini API key is already configured!
-
-## Step 3: Start the Backend (1 minute)
-
+### Step 1: Start the Backend Server
 ```bash
 cd backend
+npm install  # Only needed first time
 npm run dev
 ```
 
-You should see:
+**Expected output:**
 ```
 🚀 BloomCart backend running on port 3000
-✅ MongoDB Atlas connected successfully
+Environment: development
+Health check: http://localhost:3000/health
 ```
 
-## Step 4: Load Chrome Extension (2 minutes)
+### Step 2: Load Extension in Chrome
+1. Open Chrome and go to `chrome://extensions`
+2. Enable "Developer mode" (toggle in top-right)
+3. Click "Load unpacked"
+4. Select the `extension` folder from this project
+5. Click reload (🔄) on BloomCart extension to apply code changes
 
-1. Open Chrome
-2. Go to `chrome://extensions/`
-3. Turn on "Developer mode" (top right toggle)
-4. Click "Load unpacked"
-5. Select the `extension` folder from this project
-6. Copy the Extension ID (under the extension name)
-7. Update `backend/.env`:
-   ```env
+### Step 3: Update CORS Configuration (if needed)
+1. Find your Extension ID at `chrome://extensions` (e.g., `efniicinomgamoacfkfknefieabpflpf`)
+2. Open `backend/.env` file
+3. Update line 20 with your Extension ID:
+   ```
    ALLOWED_ORIGINS=chrome-extension://YOUR_EXTENSION_ID_HERE
    ```
-8. Restart the backend server (Ctrl+C, then `npm run dev` again)
+4. Save the file - backend will auto-reload
 
-## Step 5: Test It! (2 minutes)
+## 🧪 Test It Now!
 
-1. Go to any Amazon product page, for example:
-   - https://www.amazon.com/dp/B08N5WRWNW
+1. Go to any Amazon product page:
+   - Example: https://www.amazon.com/dp/B09G9FPHY6
+
 2. You should see:
-   - A plant animation in the bottom-right corner 🌱
-   - A green leaf tab on the right edge
-3. Click the leaf tab to see the product rating
-4. Click "Track Purchase" to update your plant
-5. Click the BloomCart extension icon to see your stats
+   - Plant icon (🌱) in bottom-right corner
+   - Green floating tab button on the right side
 
-## Troubleshooting
+3. Click the green tab:
+   - See product sustainability analysis
+   - Tier rating (1-5)
+   - Environmental, Social, Economic scores
+   - Carbon footprint data
 
-### Backend won't start?
-- Make sure MongoDB URI is correct
-- Check all API keys are set
-- Run `npm install` in the backend folder
+4. Try adding to cart:
+   - Click "Add to Cart" on Amazon
+   - Watch your plant health change!
 
-### Extension not working?
-- Check backend is running at http://localhost:3000
-- Verify CORS is set with your extension ID
-- Open DevTools (F12) and check Console for errors
+## ⚙️ Configuration
 
-### No rating showing?
-- Wait a few seconds for analysis to complete
-- Check Network tab in DevTools for failed requests
-- Verify you're on an Amazon product page
+### API Keys (Required for Full Functionality)
 
-### Plant not animating?
-- The placeholder animation is simple
-- You can replace `extension/assets/animations/plant.json` with a better one from [LottieFiles](https://lottiefiles.com/)
+**Current status:**
+- ✅ Gemini API Key: Configured in `.env`
+- ✅ Climatiq API Key: Configured in `.env`
 
-## Next Steps
+**If you need new keys:**
 
-- Read the full [README.md](README.md) for detailed documentation
-- Customize the rating thresholds in `backend/src/services/rating.js`
-- Replace the plant animation with your own design
-- Add extension icons for a polished look
+1. **Gemini API** (for product data extraction)
+   - Get key: https://aistudio.google.com/app/apikey
+   - Update in `backend/.env` line 12
 
-## Need Help?
+2. **Climatiq API** (for carbon footprint calculation)
+   - Get key: https://www.climatiq.io/
+   - Update in `backend/.env` line 15
 
-Check these files:
-- `README.md` - Full documentation
-- `backend/src/` - Backend code
-- `extension/` - Extension code
+### MongoDB (Optional - for caching)
 
-Happy sustainable shopping! 🌿
+**Current:** MongoDB Atlas URI is configured
+
+If MongoDB connection fails:
+- Extension still works! Products just won't be cached
+- Each product will be analyzed fresh each time
+- Check logs for connection errors
+
+## 🔧 Troubleshooting
+
+### "Failed to analyze product"
+1. **Check backend is running:**
+   ```bash
+   curl http://localhost:3000/health
+   ```
+   Should return: `{"status":"ok",...}`
+
+2. **Check API keys:**
+   - Open `backend/.env`
+   - Ensure `GEMINI_API_KEY` and `CLIMATIQ_API_KEY` are set
+
+3. **Check CORS:**
+   - Verify `ALLOWED_ORIGINS` in `.env` matches your extension ID
+
+### Backend not starting
+```bash
+cd backend
+rm -rf node_modules package-lock.json
+npm install
+npm run dev
+```
+
+### Extension not loading
+1. Go to `chrome://extensions`
+2. Click reload (🔄) on BloomCart extension
+3. Check for errors in the extension card
+
+## 📚 Full Documentation
+
+- **[TESTING_GUIDE.md](TESTING_GUIDE.md)**: Comprehensive testing instructions
+- **Backend API**: See `backend/src/routes/` for endpoint documentation
+- **Frontend**: See `extension/content/` for content script logic
+
+## 🎯 How It Works
+
+```
+Amazon Product Page
+       ↓
+   Scrape Data (title, brand, category, details)
+       ↓
+   Send to Backend
+       ↓
+   Gemini AI → Clean & Extract (weight, materials)
+       ↓
+   Climatiq API → Calculate Carbon Footprint
+       ↓  (fallback: Gemini Estimate if Climatiq fails)
+       ↓
+   Calculate Rating (A-E) & Scores (0-100)
+       ↓
+   Save to MongoDB (cache for future)
+       ↓
+   Return to Extension
+       ↓
+   Display in Floating Tab
+       ↓
+   Track Cart Additions → Update Plant Health
+```
+
+## 🌟 Features Working
+
+- ✅ Product sustainability analysis
+- ✅ Real-time carbon footprint calculation
+- ✅ Tier-based rating system (1-5)
+- ✅ Component scores (Environmental, Social, Economic)
+- ✅ Plant health visualization
+- ✅ Cart tracking with plant growth/decline
+- ✅ Floating tab with detailed metrics
+- ✅ MongoDB caching (optional)
+- ✅ Fallback estimates when APIs fail
+
+## 💡 Known Limitations
+
+- Cart tracking is local (Chrome storage) - not synced to backend yet
+- Plant animations use emojis (Lottie removed)
+- Some Amazon pages may have different layouts (brand/weight extraction may vary)
+- API free tiers have rate limits
+
+## 🚀 Next Steps
+
+After everything works:
+1. Review the scoring algorithm in `backend/src/routes/product.js`
+2. Test with different product categories
+3. Monitor API usage and upgrade if needed
+4. Consider implementing user accounts for cross-device sync
+5. Enhance plant visualizations
+
+---
+
+**Need help?** Check [TESTING_GUIDE.md](TESTING_GUIDE.md) for detailed troubleshooting.

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloomCart - Plant Growth Testing</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .sustainable { background: #28a745; }
+        .sustainable:hover { background: #1e7e34; }
+        .unsustainable { background: #dc3545; }
+        .unsustainable:hover { background: #c82333; }
+        .status {
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌱 BloomCart Plant Growth Test</h1>
+    
+    <div class="status">
+        <h3>Current Status</h3>
+        <p id="plant-status">Plant Health: Loading...</p>
+        <p id="cart-stats">Cart Items: Loading...</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Cart Actions</h2>
+        <p>Click these buttons to simulate adding items to your cart:</p>
+        
+        <button class="sustainable" onclick="simulateCartAdd('Bamboo Toothbrush', 85)">
+            🦷 Add Bamboo Toothbrush (85% sustainable)
+        </button>
+        
+        <button class="sustainable" onclick="simulateCartAdd('Solar Power Bank', 78)">
+            🔋 Add Solar Power Bank (78% sustainable)
+        </button>
+        
+        <button class="sustainable" onclick="simulateCartAdd('Organic Cotton T-Shirt', 92)">
+            👕 Add Organic Cotton T-Shirt (92% sustainable)
+        </button>
+        
+        <button onclick="simulateCartAdd('Regular Plastic Water Bottle', 45)">
+            💧 Add Plastic Water Bottle (45% sustainable)
+        </button>
+        
+        <button class="unsustainable" onclick="simulateCartAdd('Fast Fashion Jacket', 15)">
+            🧥 Add Fast Fashion Jacket (15% sustainable)
+        </button>
+        
+        <button class="unsustainable" onclick="simulateCartAdd('Single-use Plastic Cutlery', 8)">
+            🍴 Add Plastic Cutlery (8% sustainable)
+        </button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Plant Controls</h2>
+        <button onclick="resetPlant()">🔄 Reset Plant Health</button>
+        <button onclick="showCurrentState()">📊 Show Current State</button>
+        <button onclick="clearCart()">🛒 Clear Cart Stats</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>🎨 New Modern Design Features</h2>
+        <ul>
+            <li>🌱 **Modern card-based design** with blur effects and shadows</li>
+            <li>🎯 **Tier display system** (1-5 tiers) with visual progress indicators</li>
+            <li>🖼️ **Image fallback system** for better product image handling</li>
+            <li>📊 **Metrics grid** showing Environmental, Social, and Economic scores</li>
+            <li>🎨 **Professional styling** inspired by modern design systems</li>
+            <li>✨ **Sparkle animations** for high-tier (4-5) products</li>
+            <li>🎭 **Smooth transitions** and hover effects throughout</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h2>Expected Behavior</h2>
+        <ul>
+            <li>🌱 Plant should appear in bottom right corner with health bar</li>
+            <li>📱 Click floating tab (🌱) on right edge to see product analysis</li>
+            <li>🎨 Modern card design with tier system (1-5 circles)</li>
+            <li>📊 Three metric cards showing sustainability breakdown</li>
+            <li>✨ Sparkles appear on tier 4-5 products</li>
+            <li>🛒 Cart monitoring detects when items are added</li>
+            <li>🌿 Plant health changes based on item sustainability</li>
+            <li>📈 Click health bar to see detailed cart statistics</li>
+            <li>🎉 Plant container glows when health changes</li>
+        </ul>
+    </div>
+
+    <script>
+        // Simulate Chrome extension storage for testing
+        if (!window.chrome) {
+            window.chrome = {
+                storage: {
+                    local: {
+                        data: {},
+                        get: function(keys, callback) {
+                            const result = {};
+                            if (Array.isArray(keys)) {
+                                keys.forEach(key => result[key] = this.data[key]);
+                            } else if (typeof keys === 'string') {
+                                result[keys] = this.data[keys];
+                            } else {
+                                Object.assign(result, this.data);
+                            }
+                            callback(result);
+                        },
+                        set: function(items, callback) {
+                            Object.assign(this.data, items);
+                            callback && callback();
+                        }
+                    },
+                    onChanged: {
+                        addListener: function() {}
+                    }
+                },
+                runtime: {
+                    sendMessage: function(message, callback) {
+                        // Mock the background script response
+                        setTimeout(() => {
+                            if (message.action === 'analyzeProduct') {
+                                callback({
+                                    success: true,
+                                    rating: {
+                                        overallScore: message.mockScore || Math.floor(Math.random() * 100),
+                                        environmental: Math.floor(Math.random() * 100),
+                                        social: Math.floor(Math.random() * 100),
+                                        economic: Math.floor(Math.random() * 100)
+                                    }
+                                });
+                            }
+                        }, 500);
+                    }
+                }
+            };
+        }
+
+        // Mock Amazon scraper
+        window.AmazonScraper = {
+            isProductPage: () => true,
+            scrapeProductData: () => window.mockProduct || {
+                title: "Test Product",
+                price: "$29.99",
+                description: "A test product for sustainability analysis"
+            }
+        };
+
+        // Test functions
+        function simulateCartAdd(productName, sustainabilityScore) {
+            console.log(`Simulating cart add: ${productName} (${sustainabilityScore}% sustainable)`);
+            
+            // Set mock product data (matching AmazonScraper.scrapeProduct format)
+            window.mockProduct = {
+                title: productName,
+                price: "$29.99",
+                description: `${productName} for testing sustainability`,
+                asin: `B${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+            };
+            
+            // Create mock rating (matching analyzeProductSustainability response format)
+            const mockRating = {
+                overallScore: sustainabilityScore,
+                environmental: Math.max(0, Math.min(100, sustainabilityScore + Math.floor(Math.random() * 20) - 10)),
+                social: Math.max(0, Math.min(100, sustainabilityScore + Math.floor(Math.random() * 20) - 10)),
+                economic: Math.max(0, Math.min(100, sustainabilityScore + Math.floor(Math.random() * 20) - 10)),
+                title: productName,
+                asin: window.mockProduct.asin,
+                carbonFootprint: {
+                    co2e: Math.random() * 10,
+                    source: 'ai_estimate'
+                }
+            };
+            
+            // Simulate the cart monitoring detection
+            if (window.updatePlantFromCartItem && window.showCartItemFeedback) {
+                window.updatePlantFromCartItem(window.mockProduct, mockRating);
+                window.showCartItemFeedback(window.mockProduct, mockRating);
+                
+                console.log('Mock cart item processed:', {
+                    product: window.mockProduct,
+                    rating: mockRating
+                });
+            } else {
+                console.warn('Cart monitoring functions not available - extension may not be loaded');
+            }
+            
+            updateStatus();
+        }
+
+        function resetPlant() {
+            const newState = {
+                currentFrame: 50,
+                totalCartItems: 0,
+                sustainableCartItems: 0,
+                userId: 'test_user_' + Date.now()
+            };
+            
+            chrome.storage.local.set({
+                plantState: newState
+            }, () => {
+                console.log('Plant reset to:', newState);
+                updateStatus();
+                if (window.updatePlantFrame) window.updatePlantFrame();
+                if (window.updateHealthIndicator) window.updateHealthIndicator();
+            });
+        }
+
+        function clearCart() {
+            chrome.storage.local.get(['plantState'], (result) => {
+                const newState = {
+                    ...(result.plantState || {}),
+                    totalCartItems: 0,
+                    sustainableCartItems: 0
+                };
+                
+                chrome.storage.local.set({
+                    plantState: newState
+                }, () => {
+                    console.log('Cart stats cleared, plant state:', newState);
+                    updateStatus();
+                });
+            });
+        }
+
+        function showCurrentState() {
+            chrome.storage.local.get(['plantState'], (result) => {
+                const state = result.plantState || {};
+                alert(`Plant State:\nHealth: ${state.currentFrame || 0}%\nCart Items: ${state.totalCartItems || 0}\nSustainable Items: ${state.sustainableCartItems || 0}`);
+            });
+        }
+
+        function updateStatus() {
+            chrome.storage.local.get(['plantState'], (result) => {
+                const state = result.plantState || {};
+                document.getElementById('plant-status').textContent = 
+                    `Plant Health: ${Math.round(state.currentFrame || 0)}%`;
+                document.getElementById('cart-stats').textContent = 
+                    `Cart Items: ${state.totalCartItems || 0} total, ${state.sustainableCartItems || 0} sustainable`;
+            });
+        }
+
+        // Update status every 2 seconds
+        setInterval(updateStatus, 2000);
+        
+        // Initial status update
+        setTimeout(updateStatus, 1000);
+    </script>
+
+    <!-- Load Lottie -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+</body>
+</html>

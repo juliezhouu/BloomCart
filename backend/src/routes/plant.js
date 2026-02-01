@@ -35,7 +35,20 @@ router.get('/plant-state/:userId', async (req, res) => {
  */
 router.post('/plant-state/update', async (req, res) => {
   try {
+    logger.info('Plant state update request:', req.body);
+    
     const { userId, rating, frameChange, asin, productTitle, carbonFootprint } = req.body;
+
+    // Validate required fields
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    if (!rating) {
+      return res.status(400).json({ error: 'rating is required' });
+    }
+    if (frameChange === undefined || frameChange === null) {
+      return res.status(400).json({ error: 'frameChange is required' });
+    }
 
     let plantState = await PlantState.findOne({ userId });
 
@@ -63,13 +76,13 @@ router.post('/plant-state/update', async (req, res) => {
     // Record purchase
     const purchase = new Purchase({
       userId,
-      asin,
-      productTitle,
+      asin: asin || 'unknown',
+      productTitle: productTitle || 'Unknown Product',
       rating: {
         grade: rating,
-        score: req.body.ratingScore
+        score: req.body.ratingScore || 0
       },
-      carbonFootprint,
+      carbonFootprint: carbonFootprint || { co2e: 0, source: 'unknown' },
       frameChange
     });
 

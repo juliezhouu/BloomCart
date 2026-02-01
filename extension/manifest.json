@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BloomCart - Sustainable Shopping on Amazon",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Gamify sustainable shopping with real-time carbon footprint ratings and plant growth animations",
 
   "permissions": [
@@ -14,7 +14,9 @@
     "https://www.amazon.com/*",
     "https://www.amazon.co.uk/*",
     "https://www.amazon.ca/*",
-    "http://localhost:3000/*"
+    "https://openrouter.ai/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
   ],
 
   "background": {
@@ -30,7 +32,6 @@
         "https://www.amazon.ca/*"
       ],
       "js": [
-        "ui/lottie/lottie-loader.js",
         "content/amazon-scraper.js",
         "content/content.js"
       ],
@@ -39,16 +40,18 @@
     }
   ],
 
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:3000 http://127.0.0.1:3000;"
+  },
+
   "web_accessible_resources": [
     {
       "resources": [
         "ui/floating-tab/*.html",
         "ui/floating-tab/*.css",
-        "ui/lottie/*.css",
-        "ui/lottie/*.js",
-        "assets/animations/*.json",
         "assets/images/*.svg",
         "assets/images/*.png",
+        "assets/images/plant-stages/*.jpg",
         "assets/icons/*.png"
       ],
       "matches": ["https://www.amazon.com/*", "https://www.amazon.co.uk/*", "https://www.amazon.ca/*"]
@@ -56,17 +59,6 @@
   ],
 
   "action": {
-    "default_popup": "popup/popup.html",
-    "default_icon": {
-      "16": "assets/icons/icon16.png",
-      "48": "assets/icons/icon48.png",
-      "128": "assets/icons/icon128.png"
-    }
-  },
-
-  "icons": {
-    "16": "assets/icons/icon16.png",
-    "48": "assets/icons/icon48.png",
-    "128": "assets/icons/icon128.png"
+    "default_popup": "popup/popup.html"
   }
 }
