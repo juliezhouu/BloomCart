@@ -46,6 +46,8 @@ async function callOpenRouterGemini(prompt) {
  */
 export const cleanProductData = async (scrapedData) => {
   try {
+    const model = getGeminiModel();
+    
     const prompt = `
 You are a data extraction expert. Clean and structure this Amazon product data and return ONLY valid JSON:
 
@@ -172,6 +174,8 @@ Rules:
  */
 export const estimateCarbonFootprint = async (productData) => {
   try {
+    const model = getGeminiModel();
+    
     const prompt = `
 You are a sustainability expert. Estimate the carbon footprint for this product and return ONLY valid JSON:
 
