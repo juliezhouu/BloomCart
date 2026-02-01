@@ -676,17 +676,20 @@ function showFloatingTab(options = {}) {
   } else if (options.product) {
     const product = options.product;
     const productScore = product.overallScore || 0;
-    const productGrade = product.grade || (product.rating && product.rating.grade) || 'C';
-    const gradeLabels = { 'A': 'Excellent', 'B': 'Good', 'C': 'Average', 'D': 'Poor', 'E': 'Very Poor' };
+    console.log('BloomCart Sidebar: Showing product score:', productScore, 'for product:', product.title);
+    const productGrade = product.grade || (product.rating && product.rating.grade) || 'D';
+    const gradeLabels = { 'A': 'Excellent', 'B': 'Great', 'C': 'Good', 'D': 'Average', 'E': 'Fair', 'F': 'Poor', 'G': 'Very Poor' };
     const gradeColors = {
       'A': 'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)',
       'B': 'linear-gradient(135deg, #66BB6A 0%, #43A047 100%)',
-      'C': 'linear-gradient(135deg, #FDD835 0%, #F9A825 100%)',
-      'D': 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
-      'E': 'linear-gradient(135deg, #EF5350 0%, #E53935 100%)'
+      'C': 'linear-gradient(135deg, #9CCC65 0%, #7CB342 100%)',
+      'D': 'linear-gradient(135deg, #FDD835 0%, #F9A825 100%)',
+      'E': 'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
+      'F': 'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
+      'G': 'linear-gradient(135deg, #8D6E63 0%, #5D4037 100%)'
     };
     const gradeLabel = gradeLabels[productGrade] || 'Unknown';
-    const gradeColor = gradeColors[productGrade] || gradeColors['C'];
+    const gradeColor = gradeColors[productGrade] || gradeColors['D'];
     const health = currentPlantState.currentFrame || 50;
 
     tabContent.innerHTML = `
@@ -734,8 +737,8 @@ function showFloatingTab(options = {}) {
 
           <!-- Grade Progress -->
           <div class="tier-progress-row">
-            ${['E','D','C','B','A'].map((g, i) => `
-              <div class="tier-segment ${i < ('EDCBA'.indexOf(productGrade) + 1) ? 'active tier-' + (i+1) : ''}"></div>
+            ${['G','F','E','D','C','B','A'].map((g, i) => `
+              <div class="tier-segment ${i < ('GFEDCBA'.indexOf(productGrade) + 1) ? 'active tier-' + (i+1) : ''}"></div>
             `).join('')}
           </div>
         </div>
@@ -1070,10 +1073,12 @@ function renderTabFlower(health) {
  * Get tier from score
  */
 function getTierFromScore(score) {
-  if (score >= 80) return 5;
-  if (score >= 60) return 4;
-  if (score >= 40) return 3;
-  if (score >= 20) return 2;
+  if (score >= 85) return 7;
+  if (score >= 70) return 6;
+  if (score >= 55) return 5;
+  if (score >= 40) return 4;
+  if (score >= 25) return 3;
+  if (score >= 10) return 2;
   return 1;
 }
 
@@ -1081,7 +1086,7 @@ function getTierFromScore(score) {
  * Get tier label
  */
 function getTierLabel(tier) {
-  const labels = ['Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+  const labels = ['Very Poor', 'Poor', 'Fair', 'Average', 'Good', 'Great', 'Excellent'];
   return labels[tier - 1] || 'Unknown';
 }
 
@@ -1090,13 +1095,15 @@ function getTierLabel(tier) {
  */
 function getTierColor(tier) {
   const colors = [
+    'linear-gradient(135deg, #8D6E63 0%, #5D4037 100%)',
     'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
     'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
     'linear-gradient(135deg, #FDD835 0%, #F9A825 100%)',
+    'linear-gradient(135deg, #9CCC65 0%, #7CB342 100%)',
     'linear-gradient(135deg, #66BB6A 0%, #43A047 100%)',
     'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)'
   ];
-  return colors[tier - 1] || colors[2];
+  return colors[tier - 1] || colors[3];
 }
 
 /**
@@ -1106,9 +1113,11 @@ function getFrameChangeFromGrade(grade) {
   const frameChanges = {
     'A': 15,
     'B': 10,
-    'C': 0,
-    'D': -15,
-    'E': -20
+    'C': 5,
+    'D': 0,
+    'E': -5,
+    'F': -15,
+    'G': -20
   };
   return frameChanges[grade] || 0;
 }

@@ -471,12 +471,12 @@ body {
   position: relative;
   padding: 32px 20px;
   background: linear-gradient(180deg, #F1F8F4 0%, #E8F5E9 100%);
-  min-height: 240px;
+  min-height: 280px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .garden-bg {
@@ -533,6 +533,105 @@ body {
   font-family: 'Poppins', sans-serif;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+/* Speech bubble */
+.speech-bubble {
+  position: absolute;
+  top: 20%;
+  right: -40px;
+  transform: translateX(20px);
+  background: white;
+  border: 1.5px solid #666;
+  border-radius: 18px;
+  padding: 12px 18px;
+  max-width: 200px;
+  min-width: 160px;
+  z-index: 100;
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 14px solid white;
+}
+
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 11px solid transparent;
+  border-bottom: 11px solid transparent;
+  border-right: 17px solid #666;
+  z-index: -1;
+}
+
+.speech-bubble.show {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.speech-bubble-text {
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: #444;
+  text-align: left;
+  line-height: 1.5;
+}
+
+/* Notification toast */
+.notification-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
+  z-index: 1000;
+  opacity: 0;
+  transition: all 0.3s ease;
+  max-width: 90%;
+}
+
+.notification-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notification-icon {
+  font-size: 24px;
+}
+
+.notification-text {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 /* Sunshine effect */

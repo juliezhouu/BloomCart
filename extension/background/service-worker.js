@@ -3,7 +3,7 @@
  * Direct OpenRouter/Gemini integration for product sustainability analysis
  */
 
-const OPENROUTER_API_KEY = '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';
+const OPENROUTER_API_KEY = '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';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
@@ -103,7 +103,7 @@ Return this exact JSON structure:
   "environmental": <number 0-100>,
   "social": <number 0-100>,
   "economic": <number 0-100>,
-  "grade": "<A or B or C or D or E>",
+  "grade": "<A or B or C or D or E or F or G>",
   "co2e": <estimated kg CO2e for full product lifecycle>,
   "waterLiters": <estimated liters of water used in production>,
   "energyKwh": <estimated kWh of energy for production>,
@@ -129,7 +129,7 @@ IMPORTANT guidelines:
 - percentileRanking: 50 = average for this product category, 80+ = among most sustainable, <20 = among least sustainable
 - estimatedWeightKg: estimate from product title/description
 - Scoring: Organic/eco/sustainable=70-95, Reusable/durable=55-80, Standard goods=35-55, Electronics=20-50, Fast fashion/disposable=10-35
-- Grade: A=80-100, B=60-79, C=40-59, D=20-39, E=0-19
+- Grade: A=85-100, B=70-84, C=55-69, D=40-54, E=25-39, F=10-24, G=0-9
 
 Return ONLY the JSON object, nothing else.`;
 
@@ -160,7 +160,7 @@ Return a JSON array with exactly ${items.length} objects, one per product in ord
   "environmental": <0-100>,
   "social": <0-100>,
   "economic": <0-100>,
-  "grade": "<A-E>",
+  "grade": "<A-G>",
   "co2e": <kg CO2e number>,
   "waterLiters": <liters>,
   "energyKwh": <kWh>,
@@ -174,7 +174,7 @@ Return a JSON array with exactly ${items.length} objects, one per product in ord
 
 Scoring - be realistic and VARY scores between different products:
 - Organic/eco/sustainable: 70-95, Reusable/durable: 55-80, Standard goods: 35-55, Electronics: 20-50, Fast fashion/disposable: 10-35
-- Grade: A=80-100, B=60-79, C=40-59, D=20-39, E=0-19
+- Grade: A=85-100, B=70-84, C=55-69, D=40-54, E=25-39, F=10-24, G=0-9
 - recyclabilityPercent: based on materials (aluminum=95, glass=90, plastic=40, textile=30, mixed=20)
 - percentileRanking: 50=average for category
 
@@ -238,11 +238,13 @@ function fallbackAnalysis(scrapedData) {
   const economic = Math.max(5, Math.min(95, baseScore + v4));
 
   let grade;
-  if (baseScore >= 80) grade = 'A';
-  else if (baseScore >= 60) grade = 'B';
-  else if (baseScore >= 40) grade = 'C';
-  else if (baseScore >= 20) grade = 'D';
-  else grade = 'E';
+  if (baseScore >= 85) grade = 'A';
+  else if (baseScore >= 70) grade = 'B';
+  else if (baseScore >= 55) grade = 'C';
+  else if (baseScore >= 40) grade = 'D';
+  else if (baseScore >= 25) grade = 'E';
+  else if (baseScore >= 10) grade = 'F';
+  else grade = 'G';
 
   const co2e = parseFloat(((100 - baseScore) * 0.08 + Math.abs(v2) * 0.1).toFixed(2));
 
@@ -358,7 +360,7 @@ function buildProduct(scrapedData, analysis) {
 }
 
 function getFrameChange(grade) {
-  return { 'A': 15, 'B': 10, 'C': 0, 'D': -15, 'E': -20 }[grade] || 0;
+  return { 'A': 15, 'B': 10, 'C': 5, 'D': 0, 'E': -5, 'F': -15, 'G': -20 }[grade] || 0;
 }
 
 /**
@@ -396,6 +398,31 @@ async function handleAnalyzeProduct(data, sendResponse) {
     }
 
     const product = buildProduct(scrapedData, analysis);
+    product.detailedAnalysis = true;
+
+    // Save detailed analysis so cart sync can use it (handles race condition)
+    if (product.asin && product.asin !== 'unknown') {
+      chrome.storage.local.get(['detailedAnalyses', 'cartItems'], (result) => {
+        // Always save to detailedAnalyses map for future cart syncs
+        const analyses = result.detailedAnalyses || {};
+        analyses[product.asin] = product;
+        chrome.storage.local.set({ detailedAnalyses: analyses });
+
+        // Also update cartItems immediately if the item is already there
+        const items = result.cartItems || [];
+        const idx = items.findIndex(i => i.asin === product.asin);
+        if (idx >= 0) {
+          // Preserve price from cart scrape if product page analysis lacks it
+          if (!product.price && items[idx].price) {
+            product.price = items[idx].price;
+          }
+          items[idx] = product;
+          chrome.storage.local.set({ cartItems: items });
+          console.log('BloomCart SW: Updated cart item with detailed analysis:', product.asin, 'score:', product.overallScore);
+          updatePlantFromCart(items);
+        }
+      });
+    }
 
     sendResponse({ success: true, product });
   } catch (error) {
@@ -412,12 +439,15 @@ async function handleAddToCart(data, sendResponse) {
     const { product } = data;
     if (!product) throw new Error('Missing product');
 
+    console.log('BloomCart SW: Storing product with score:', product.overallScore, 'Title:', product.title);
+
     // Store in cart items
     await storeCartItem(product);
 
     // Recalculate plant health from all cart items
     chrome.storage.local.get(['cartItems', 'plantState'], (result) => {
       const items = result.cartItems || [];
+      console.log('BloomCart SW: Cart items after add:', items.map(i => ({ title: i.title.substring(0, 30), score: i.overallScore })));
       const state = result.plantState || { currentFrame: 50, totalPurchases: 0, sustainablePurchases: 0 };
 
       if (items.length > 0) {
@@ -464,13 +494,37 @@ async function handleAnalyzeCartItems(data, sendResponse) {
       analyzedItems = items.map(item => buildProduct(item, fallbackAnalysis(item)));
     }
 
-    // Store all cart items
-    chrome.storage.local.set({ cartItems: analyzedItems });
+    // Merge: use detailed product page analyses when available (handles race condition)
+    chrome.storage.local.get(['cartItems', 'detailedAnalyses'], (result) => {
+      const existing = result.cartItems || [];
+      const detailed = result.detailedAnalyses || {};
+      const merged = analyzedItems.map(newItem => {
+        let mergedItem;
+        // First priority: detailed analysis from product page (stored separately)
+        if (detailed[newItem.asin]) {
+          mergedItem = detailed[newItem.asin];
+        } else {
+          // Second priority: existing cart item with detailed flag
+          const prev = existing.find(e => e.asin === newItem.asin);
+          if (prev && prev.detailedAnalysis) {
+            mergedItem = prev;
+          }
+        }
+        if (mergedItem) {
+          // Preserve price from cart scrape if detailed analysis lacks it
+          if (!mergedItem.price && newItem.price) {
+            mergedItem = { ...mergedItem, price: newItem.price };
+          }
+          return mergedItem;
+        }
+        // Fallback: use the batch analysis result
+        return newItem;
+      });
 
-    // Update plant health based on average cart score
-    updatePlantFromCart(analyzedItems);
-
-    sendResponse({ success: true, cartItems: analyzedItems });
+      chrome.storage.local.set({ cartItems: merged });
+      updatePlantFromCart(merged);
+      sendResponse({ success: true, cartItems: merged });
+    });
   } catch (error) {
     console.error('BloomCart SW: Cart analysis failed:', error);
     sendResponse({ success: false, error: error.message });

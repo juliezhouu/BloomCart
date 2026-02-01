@@ -157,6 +157,34 @@ const AmazonScraper = {
   },
 
   /**
+   * Extract product price
+   */
+  getPrice() {
+    const selectors = [
+      '#priceblock_ourprice',
+      '#priceblock_dealprice',
+      '.a-price .a-offscreen',
+      '#corePrice_feature_div .a-price .a-offscreen',
+      '#price_inside_buybox',
+      '#newBuyBoxPrice',
+      'span.a-price span.a-offscreen',
+      '#tp_price_block_total_price_ww .a-offscreen'
+    ];
+
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const text = element.textContent.trim();
+        if (text && text.match(/\$|£|€|\d/)) {
+          return text;
+        }
+      }
+    }
+
+    return '';
+  },
+
+  /**
    * Extract product description
    */
   getDescription() {
@@ -194,6 +222,7 @@ const AmazonScraper = {
       asin,
       title: this.getTitle(),
       brand: this.getBrand(),
+      price: this.getPrice(),
       details: this.getProductDetails(),
       category: this.getCategory(),
       description: this.getDescription(),

@@ -58,9 +58,9 @@
         <div class="score-sparkle">✨</div>
       </div>
       <h3 id="score-label">Calculating...</h3>
-      <p id="score-tier">Tier 0 of 7</p>
+      <p id="score-tier">0/100 Sustainability Score</p>
 
-      <!-- Tier Progress Bar -->
+      <!-- Grade Progress Bar -->
       <div class="tier-progress">
         <div class="tier-bar tier-1"></div>
         <div class="tier-bar tier-2"></div>
@@ -109,6 +109,9 @@
     <section class="flower-garden">
       <div class="garden-bg"></div>
       <div class="flower-container" id="flower-container">
+        <div class="speech-bubble" id="speech-bubble" style="display: none;">
+          <div class="speech-bubble-text" id="speech-bubble-text"></div>
+        </div>
         <img 
           id="plant-image" 
           src="assets/images/plant-stages/plant-stage-1.jpg" 
@@ -119,6 +122,14 @@
       </div>
       <h3 class="garden-title">Your Bloom</h3>
     </section>
+
+    <!-- Notification Toast -->
+    <div class="notification-toast" id="notification-toast" style="display: none;">
+      <div class="notification-content">
+        <span class="notification-icon">🌫️</span>
+        <span class="notification-text" id="notification-text"></span>
+      </div>
+    </div>
 
     <!-- Add to Cart Button -->
     <button class="cart-button" id="cart-button">
