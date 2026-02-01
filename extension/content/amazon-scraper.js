@@ -251,6 +251,18 @@ const AmazonScraper = {
       const containerAsin = container.getAttribute('data-asin') || asin;
       if (containerAsin !== asin && seen.has(containerAsin)) return;
 
+      // Skip containers with promotional/credit card content
+      const containerText = container.textContent.toLowerCase();
+      if (containerText.includes('credit card') || 
+          containerText.includes('mastercard') || 
+          containerText.includes('rewards card') ||
+          containerText.includes('amazon card') ||
+          containerText.includes('visa card') ||
+          containerText.includes('apply now') ||
+          containerText.includes('get approved')) {
+        return;
+      }
+
       // Find title
       const titleSelectors = [
         '.sc-product-title a', 'a.sc-product-link', '.sc-item-title-content a',
@@ -262,10 +274,23 @@ const AmazonScraper = {
         const tel = container.querySelector(sel);
         if (tel) {
           const text = tel.textContent.trim();
-          if (text && text.length > 3) { title = text; break; }
+          if (text && text.length > 3) { 
+            title = text; 
+            break; 
+          }
         }
       }
       if (!title) return;
+
+      // Additional title filtering for credit cards
+      const titleLower = title.toLowerCase();
+      if (titleLower.includes('credit card') || 
+          titleLower.includes('mastercard') || 
+          titleLower.includes('rewards card') ||
+          titleLower.includes('amazon card') ||
+          titleLower.includes('visa card')) {
+        return;
+      }
 
       seen.add(asin);
       title = title.replace(/\s+/g, ' ').trim();
@@ -300,6 +325,17 @@ const AmazonScraper = {
         if (seen.has(asin)) return;
         const title = link.textContent.trim().replace(/\s+/g, ' ');
         if (!title || title.length < 3) return;
+        
+        // Filter out credit card offers
+        const titleLower = title.toLowerCase();
+        if (titleLower.includes('credit card') || 
+            titleLower.includes('mastercard') || 
+            titleLower.includes('rewards card') ||
+            titleLower.includes('amazon card') ||
+            titleLower.includes('visa card')) {
+          return;
+        }
+        
         seen.add(asin);
 
         const container = link.closest('.sc-list-item, [data-asin], [data-item-index]') || link.parentElement;

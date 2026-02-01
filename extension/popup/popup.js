@@ -29,7 +29,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   plantImage = document.getElementById('plant-image');
 
   if (plantImage) {
-    setPlantStage(currentPlantState.currentFrame);
+    // Set initial plant image with proper URL
+    const initialHealth = currentPlantState.currentFrame || 50;
+    // Calculate initial stage inline to avoid undefined function
+    let initialStage = 1;
+    if (initialHealth >= 85) initialStage = 7;
+    else if (initialHealth >= 70) initialStage = 6;
+    else if (initialHealth >= 55) initialStage = 5;
+    else if (initialHealth >= 40) initialStage = 4;
+    else if (initialHealth >= 25) initialStage = 3;
+    else if (initialHealth >= 10) initialStage = 2;
+    
+    plantImage.src = chrome.runtime.getURL(`assets/images/plant-stages/plant-stage-${initialStage}.jpg`);
+    plantImage.onerror = function() {
+      console.error('BloomCart: Failed to load plant image');
+      this.alt = '🌱';
+      this.style.fontSize = '80px';
+      this.style.textAlign = 'center';
+    };
   }
 
   // Initialize UI
@@ -77,33 +94,61 @@ function initializeUI() {
  * Load cart items from storage and optionally from active tab
  */
 function loadCartItems() {
-  // Load cached cart items from storage
+  console.log('BloomCart: Loading cart items...');
+  
+  // Immediately load and display cached cart items
   chrome.storage.local.get(['cartItems'], (result) => {
     const cartItems = result.cartItems || [];
+    console.log('BloomCart: Found cached cart items:', cartItems.length);
+    
     if (cartItems.length > 0) {
       displayCartItems(cartItems);
     } else {
-      // Show helpful message
-      document.getElementById('product-title').textContent = 'No items in cart yet';
-      document.getElementById('product-brand').textContent = 'Add products on Amazon to track sustainability';
+      document.getElementById('product-title').textContent = 'No items in cart';
+      document.getElementById('product-brand').textContent = 'Add products to Amazon cart';
     }
   });
 
   // Also try to get fresh cart items from the active tab
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0] && tabs[0].url && tabs[0].url.includes('amazon.com')) {
+    if (tabs[0] && tabs[0].url && (tabs[0].url.includes('amazon.com') || tabs[0].url.includes('amazon.ca') || tabs[0].url.includes('amazon.co.uk'))) {
+      console.log('BloomCart: Requesting fresh cart items from active tab...');
+      
       chrome.tabs.sendMessage(tabs[0].id, { action: 'getCartItems' }, (response) => {
-        if (chrome.runtime.lastError) return;
-        if (response && response.items && response.items.length > 0) {
-          // Analyze fresh cart items via service worker
-          chrome.runtime.sendMessage(
-            { action: 'analyzeCartItems', data: { items: response.items } },
-            (analysisResponse) => {
-              if (analysisResponse && analysisResponse.success && analysisResponse.cartItems.length > 0) {
-                displayCartItems(analysisResponse.cartItems);
+        if (chrome.runtime.lastError) {
+          console.log('BloomCart: Could not get fresh cart items:', chrome.runtime.lastError.message);
+          return;
+        }
+        
+        console.log('BloomCart: Fresh cart response:', response);
+        
+        if (response && response.items) {
+          if (response.items.length === 0) {
+            // Cart is empty - clear display
+            console.log('BloomCart: Cart is now empty');
+            document.getElementById('product-title').textContent = 'No items in cart';
+            document.getElementById('product-brand').textContent = 'Add products to Amazon cart';
+            document.getElementById('cart-items-section').style.display = 'none';
+            // Clear storage too
+            chrome.storage.local.set({ cartItems: [] });
+          } else {
+            // Analyze fresh cart items via service worker
+            console.log('BloomCart: Analyzing', response.items.length, 'fresh items...');
+            chrome.runtime.sendMessage(
+              { action: 'analyzeCartItems', data: { items: response.items } },
+              (analysisResponse) => {
+                if (analysisResponse && analysisResponse.success) {
+                  console.log('BloomCart: Analysis complete, displaying items');
+                  if (analysisResponse.cartItems.length > 0) {
+                    displayCartItems(analysisResponse.cartItems);
+                  } else {
+                    document.getElementById('product-title').textContent = 'No items in cart';
+                    document.getElementById('product-brand').textContent = 'Add products to Amazon cart';
+                  }
+                }
               }
-            }
-          );
+            );
+          }
         }
       });
     }

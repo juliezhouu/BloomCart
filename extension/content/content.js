@@ -38,6 +38,8 @@ async function initBloomCart() {
   } else if (AmazonScraper.isCartPage()) {
     console.log('BloomCart: On cart page, analyzing cart items...');
     analyzeCartPage();
+    // Monitor cart for changes
+    observeCartChanges();
   } else {
     console.log('BloomCart: Not a product or cart page');
     // Still observe for SPA navigation
@@ -991,7 +993,12 @@ function analyzeCartPage() {
   const cartItems = AmazonScraper.scrapeCartItems();
   console.log('BloomCart: Found', cartItems.length, 'cart items');
 
-  if (cartItems.length === 0) return;
+  if (cartItems.length === 0) {
+    // Cart is empty - clear storage
+    console.log('BloomCart: Cart is empty, clearing storage');
+    chrome.storage.local.set({ cartItems: [] });
+    return;
+  }
 
   // Send all items for batch analysis
   chrome.runtime.sendMessage(
@@ -1009,6 +1016,32 @@ function analyzeCartPage() {
       }
     }
   );
+}
+
+/**
+ * Observe cart page for changes (items added/removed)
+ */
+function observeCartChanges() {
+  const cartContainer = document.querySelector('#sc-active-cart, #activeCartViewForm');
+  if (!cartContainer) {
+    console.log('BloomCart: Cart container not found for monitoring');
+    return;
+  }
+
+  console.log('BloomCart: Monitoring cart for changes...');
+  const observer = new MutationObserver((mutations) => {
+    // Debounce - only analyze after changes stop for 1 second
+    clearTimeout(window._bloomCartDebounce);
+    window._bloomCartDebounce = setTimeout(() => {
+      console.log('BloomCart: Cart changed, re-analyzing...');
+      analyzeCartPage();
+    }, 1000);
+  });
+
+  observer.observe(cartContainer, {
+    childList: true,
+    subtree: true
+  });
 }
 
 /**
@@ -1068,7 +1101,10 @@ async function fetchCartItems() {
         const el = container.querySelector(sel);
         if (el) {
           const text = el.textContent.trim();
-          if (text && text.length > 3) {
+          // Quick filter for obvious non-products  
+          if (text && text.length > 3 && 
+              !text.toLowerCase().includes('credit card') &&
+              !text.toLowerCase().includes('amazon card')) {
             title = text;
             break;
           }
@@ -1118,7 +1154,6 @@ async function fetchCartItems() {
     }
 
     // Find the ACTIVE cart container (exclude "Save for Later", recommendations, etc.)
-    // Amazon uses #activeCartViewForm or #sc-active-cart for the actual cart
     const activeCartContainer =
       doc.querySelector('#activeCartViewForm') ||
       doc.querySelector('#sc-active-cart') ||
@@ -1135,7 +1170,7 @@ async function fetchCartItems() {
       // If no container found, exclude known non-cart sections
       const savedCart = doc.querySelector('#sc-saved-cart, #savedCartViewForm');
       if (savedCart && savedCart.contains(el)) return false;
-      const recs = el.closest('[class*="recommendation"], [class*="sims-"], [id*="sims-"], [class*="acswidget"]');
+      const recs = el.closest('[class*="recommendation"], [class*="sims-"], [id*="sims-"], [class*="acswidget"], [class*="credit"], [class*="offer"]');
       if (recs) return false;
       return true;
     }
@@ -1150,14 +1185,13 @@ async function fetchCartItems() {
       if (!isInActiveCart(el)) return;
 
       // Find the top-level item container for this ASIN
-      // (avoid extracting from nested child elements that share the parent's ASIN)
       const itemContainer =
         el.closest('.sc-list-item') ||
         el.closest('[data-item-index]') ||
         el;
 
-      // Skip if this container's ASIN was already processed
-      const containerAsin = itemContainer.getAttribute('data-asin') || asin;
+      // Skip if this container has promotional content
+      if (itemContainer.querySelector('.a-alert, [class*="credit"], [class*="offer"]')) return;
       if (containerAsin !== asin && seen.has(containerAsin)) return;
 
       const item = extractItem(itemContainer, asin);
@@ -1265,7 +1299,14 @@ async function fetchCartItems() {
  */
 async function syncCartItems() {
   console.log('BloomCart: Syncing cart items...');
-  const items = await fetchCartItems();
+  
+  // If on cart page, scrape directly; otherwise try fetch
+  let items = [];
+  if (AmazonScraper.isCartPage()) {
+    items = AmazonScraper.scrapeCartItems();
+  } else {
+    items = await fetchCartItems();
+  }
 
   if (items.length === 0) {
     console.log('BloomCart: No items in Amazon cart');
@@ -1291,7 +1332,24 @@ async function syncCartItems() {
  * Listen for messages from popup and other extension parts
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'getProductInfo') {
+  if (message.action === 'getCartItems') {
+    // If on cart page, scrape directly; otherwise return cached items
+    if (AmazonScraper.isCartPage()) {
+      const items = AmazonScraper.scrapeCartItems();
+      sendResponse({ items });
+    } else {
+      chrome.storage.local.get(['cartItems'], (result) => {
+        sendResponse({ items: result.cartItems || [] });
+      });
+    }
+    return true;
+  } else if (message.action === 'syncCart') {
+    // Force fresh cart sync
+    console.log('BloomCart: Popup requested fresh cart sync');
+    syncCartItems();
+    sendResponse({ success: true });
+    return true;
+  } else if (message.action === 'getProductInfo') {
     // Return current product rating if on a product page
     if (currentProductRating) {
       sendResponse({ product: currentProductRating });
@@ -1303,16 +1361,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ product: null });
     }
     return false;
-  }
-
-  if (message.action === 'getCartItems') {
-    // Fetch real cart items from Amazon (works from any Amazon page)
-    fetchCartItems().then(items => {
-      sendResponse({ items });
-    }).catch(() => {
-      sendResponse({ items: [] });
-    });
-    return true; // async sendResponse
   }
 
   return false;
