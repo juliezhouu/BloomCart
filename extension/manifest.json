@@ -14,6 +14,7 @@
     "https://www.amazon.com/*",
     "https://www.amazon.co.uk/*",
     "https://www.amazon.ca/*",
+    "https://openrouter.ai/*",
     "http://localhost:3000/*",
     "http://127.0.0.1:3000/*"
   ],
@@ -50,6 +51,7 @@
         "ui/floating-tab/*.css",
         "assets/images/*.svg",
         "assets/images/*.png",
+        "assets/images/plant-stages/*.jpg",
         "assets/icons/*.png"
       ],
       "matches": ["https://www.amazon.com/*", "https://www.amazon.co.uk/*", "https://www.amazon.ca/*"]

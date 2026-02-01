@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BloomCart</title>
   <link rel="stylesheet" href="popup.css">
+  <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.8.11/dist/dotlottie-wc.js" type="module"></script>
 </head>
 <body>
   <div class="popup-container">
@@ -16,16 +17,36 @@
         </svg>
         <h1>BloomCart</h1>
       </div>
-      <div class="status-badge">
-        <span class="status-dot"></span>
-        <span>Active</span>
+      <div class="header-actions">
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          <span>Active</span>
+        </div>
+        <button class="close-btn" id="close-btn" title="Close popup">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+          </svg>
+        </button>
       </div>
     </header>
 
-    <!-- Current Product -->
+    <!-- Current Product / Cart Status -->
     <section class="current-product" id="current-product">
-      <h2 id="product-title">No product selected</h2>
-      <p id="product-brand">Visit Amazon product pages</p>
+      <h2 id="product-title">Loading cart...</h2>
+      <p id="product-brand">Checking your Amazon cart</p>
+    </section>
+
+    <!-- Cart Items List -->
+    <section class="cart-items-section" id="cart-items-section" style="display: none;">
+      <div class="cart-items-header">
+        <span class="cart-items-title">Your Cart Items</span>
+        <span class="cart-items-count" id="cart-items-count">0</span>
+      </div>
+      <div class="cart-items-list" id="cart-items-list"></div>
+      <div class="cart-summary" id="cart-summary">
+        <span>Average Sustainability</span>
+        <span class="cart-avg-score" id="cart-avg-score">--</span>
+      </div>
     </section>
 
     <!-- Sustainability Score -->
@@ -37,7 +58,7 @@
         <div class="score-sparkle">✨</div>
       </div>
       <h3 id="score-label">Calculating...</h3>
-      <p id="score-tier">Tier 0 of 5</p>
+      <p id="score-tier">Tier 0 of 7</p>
 
       <!-- Tier Progress Bar -->
       <div class="tier-progress">
@@ -46,6 +67,8 @@
         <div class="tier-bar tier-3"></div>
         <div class="tier-bar tier-4"></div>
         <div class="tier-bar tier-5"></div>
+        <div class="tier-bar tier-6"></div>
+        <div class="tier-bar tier-7"></div>
       </div>
     </section>
 
@@ -81,7 +104,12 @@
     <section class="flower-garden">
       <div class="garden-bg"></div>
       <div class="flower-container" id="flower-container">
-        <!-- Flower will be rendered by JavaScript -->
+        <img 
+          id="plant-image" 
+          src="assets/images/plant-stages/plant-stage-4.jpg" 
+          alt="Your Plant" 
+          class="plant-stage-image"
+        />
       </div>
       <h3 class="garden-title">Your Bloom</h3>
       <button class="preview-btn" id="preview-btn">Preview</button>

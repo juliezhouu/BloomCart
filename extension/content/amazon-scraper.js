@@ -203,6 +203,128 @@ const AmazonScraper = {
 
     console.log('BloomCart: Scraped product data', scrapedData);
     return scrapedData;
+  },
+
+  /**
+   * Check if current page is an Amazon cart page
+   */
+  isCartPage() {
+    const url = window.location.href;
+    return url.includes('/cart') || url.includes('/gp/cart');
+  },
+
+  /**
+   * Scrape all items from the Amazon cart page (live DOM).
+   * Scoped to the ACTIVE cart only (excludes Save for Later, recommendations, etc.)
+   */
+  scrapeCartItems() {
+    const items = [];
+    const seen = new Set();
+
+    // Find the active cart container
+    const activeCart =
+      document.querySelector('#activeCartViewForm') ||
+      document.querySelector('#sc-active-cart') ||
+      document.querySelector('#sc-cart-container');
+
+    const searchRoot = activeCart || document;
+    console.log('BloomCart: Scraping cart. Active cart container found:', !!activeCart);
+
+    // Check element is NOT in Save for Later / recommendations
+    function isInActiveCart(el) {
+      if (activeCart) return activeCart.contains(el);
+      const saved = document.querySelector('#sc-saved-cart, #savedCartViewForm');
+      if (saved && saved.contains(el)) return false;
+      if (el.closest('[class*="recommendation"], [class*="sims-"], [id*="sims-"]')) return false;
+      return true;
+    }
+
+    // Find [data-asin] elements in active cart
+    const asinEls = searchRoot.querySelectorAll('[data-asin]');
+    asinEls.forEach(el => {
+      const asin = el.getAttribute('data-asin');
+      if (!asin || asin === '' || seen.has(asin)) return;
+      if (!isInActiveCart(el)) return;
+
+      // Use the top-level item container
+      const container = el.closest('.sc-list-item') || el.closest('[data-item-index]') || el;
+      const containerAsin = container.getAttribute('data-asin') || asin;
+      if (containerAsin !== asin && seen.has(containerAsin)) return;
+
+      // Find title
+      const titleSelectors = [
+        '.sc-product-title a', 'a.sc-product-link', '.sc-item-title-content a',
+        '.a-truncate-cut', '.sc-product-title', 'span.a-truncate-full',
+        'a[href*="/dp/"]', 'a.a-link-normal[href*="/dp/"]'
+      ];
+      let title = '';
+      for (const sel of titleSelectors) {
+        const tel = container.querySelector(sel);
+        if (tel) {
+          const text = tel.textContent.trim();
+          if (text && text.length > 3) { title = text; break; }
+        }
+      }
+      if (!title) return;
+
+      seen.add(asin);
+      title = title.replace(/\s+/g, ' ').trim();
+
+      const priceEl = container.querySelector(
+        '.sc-product-price, .sc-price, .a-price .a-offscreen'
+      );
+      const price = priceEl ? priceEl.textContent.trim() : '';
+
+      items.push({
+        asin,
+        title,
+        price,
+        brand: '',
+        category: '',
+        description: title,
+        details: {},
+        url: window.location.href,
+        scrapedAt: new Date().toISOString()
+      });
+    });
+
+    // Fallback: find product links with ASINs in active cart
+    if (items.length === 0) {
+      const links = searchRoot.querySelectorAll('a[href*="/dp/"]');
+      links.forEach(link => {
+        if (!isInActiveCart(link)) return;
+        const href = link.getAttribute('href') || '';
+        const match = href.match(/\/dp\/([A-Z0-9]{10})/);
+        if (!match) return;
+        const asin = match[1];
+        if (seen.has(asin)) return;
+        const title = link.textContent.trim().replace(/\s+/g, ' ');
+        if (!title || title.length < 3) return;
+        seen.add(asin);
+
+        const container = link.closest('.sc-list-item, [data-asin], [data-item-index]') || link.parentElement;
+        const priceEl = container ? container.querySelector('.a-price .a-offscreen, .sc-product-price') : null;
+
+        items.push({
+          asin,
+          title,
+          price: priceEl ? priceEl.textContent.trim() : '',
+          brand: '',
+          category: '',
+          description: title,
+          details: {},
+          url: window.location.href,
+          scrapedAt: new Date().toISOString()
+        });
+      });
+    }
+
+    console.log('BloomCart: Scraped cart items:', items.length);
+    if (items.length === 0) {
+      const asinCount = document.querySelectorAll('[data-asin]').length;
+      console.warn('BloomCart: No items parsed. Total [data-asin] on page:', asinCount);
+    }
+    return items;
   }
 };
 

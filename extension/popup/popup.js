@@ -1,10 +1,11 @@
 /**
  * BloomCart Popup Script
- * JavaScript-based flower animations (no Lottie)
+ * Displays cart items with sustainability scores and plant animation
  */
 
 let currentPlantState = null;
 let currentProductRating = null;
+let plantImage = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('BloomCart Popup: Initializing...');
@@ -24,12 +25,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     sustainableCartItems: 0
   };
 
+  // Get plant image reference
+  plantImage = document.getElementById('plant-image');
+
+  if (plantImage) {
+    setPlantStage(currentPlantState.currentFrame);
+  }
+
   // Initialize UI
   initializeUI();
-  renderFlower(currentPlantState.currentFrame);
 
   // Setup event listeners
   setupEventListeners();
+
+  // Load cart items
+  loadCartItems();
 });
 
 /**
@@ -37,20 +47,15 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 function initializeUI() {
   try {
-    console.log('BloomCart: Initializing UI with state:', currentPlantState);
-
-    // Update score display
     const health = currentPlantState.currentFrame || 50;
     const tier = getTier(health);
 
     updateScoreDisplay(tier, health);
     updateTierProgress(tier);
 
-    // Check if we have a current product
+    // Try to get current product from active tab
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0] && tabs[0].url && tabs[0].url.includes('amazon.com')) {
-        console.log('BloomCart: On Amazon page, requesting product info');
-        // Request product data from content script
         chrome.tabs.sendMessage(tabs[0].id, { action: 'getProductInfo' }, (response) => {
           if (chrome.runtime.lastError) {
             console.log('BloomCart: Could not reach content script:', chrome.runtime.lastError.message);
@@ -61,14 +66,96 @@ function initializeUI() {
             displayProductInfo(response.product);
           }
         });
-      } else {
-        console.log('BloomCart: Not on Amazon page');
       }
     });
-
-    console.log('BloomCart: UI initialized successfully');
   } catch (error) {
     console.error('BloomCart: Error initializing UI:', error);
+  }
+}
+
+/**
+ * Load cart items from storage and optionally from active tab
+ */
+function loadCartItems() {
+  // Load cached cart items from storage
+  chrome.storage.local.get(['cartItems'], (result) => {
+    const cartItems = result.cartItems || [];
+    if (cartItems.length > 0) {
+      displayCartItems(cartItems);
+    } else {
+      // Show helpful message
+      document.getElementById('product-title').textContent = 'No items in cart yet';
+      document.getElementById('product-brand').textContent = 'Add products on Amazon to track sustainability';
+    }
+  });
+
+  // Also try to get fresh cart items from the active tab
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0] && tabs[0].url && tabs[0].url.includes('amazon.com')) {
+      chrome.tabs.sendMessage(tabs[0].id, { action: 'getCartItems' }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (response && response.items && response.items.length > 0) {
+          // Analyze fresh cart items via service worker
+          chrome.runtime.sendMessage(
+            { action: 'analyzeCartItems', data: { items: response.items } },
+            (analysisResponse) => {
+              if (analysisResponse && analysisResponse.success && analysisResponse.cartItems.length > 0) {
+                displayCartItems(analysisResponse.cartItems);
+              }
+            }
+          );
+        }
+      });
+    }
+  });
+}
+
+/**
+ * Display cart items in the popup
+ */
+function displayCartItems(items) {
+  if (!items || items.length === 0) return;
+
+  const section = document.getElementById('cart-items-section');
+  const list = document.getElementById('cart-items-list');
+  const countEl = document.getElementById('cart-items-count');
+
+  section.style.display = 'block';
+  countEl.textContent = items.length;
+
+  // Update header text
+  document.getElementById('product-title').textContent = `${items.length} item${items.length !== 1 ? 's' : ''} in cart`;
+  document.getElementById('product-brand').textContent = 'Sustainability analysis below';
+
+  // Render each cart item
+  list.innerHTML = items.map(item => {
+    const gradeColor = getGradeColor(item.grade);
+    return `
+      <div class="cart-item">
+        <div class="cart-item-grade" style="background: ${gradeColor};">${item.grade}</div>
+        <div class="cart-item-info">
+          <span class="cart-item-title">${truncate(item.title, 50)}</span>
+          <div class="cart-item-meta">
+            <span class="cart-item-score">${item.overallScore}/100</span>
+            ${item.price ? `<span class="cart-item-price">${item.price}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Calculate and display average score
+  const avgScore = Math.round(items.reduce((sum, item) => sum + item.overallScore, 0) / items.length);
+  document.getElementById('cart-avg-score').textContent = `${avgScore}/100`;
+
+  // Update the overall score display based on average
+  const tier = getTier(avgScore);
+  updateScoreDisplay(tier, avgScore);
+  updateTierProgress(tier);
+
+  // Update plant based on average
+  if (plantImage) {
+    setPlantStage(avgScore);
   }
 }
 
@@ -76,10 +163,15 @@ function initializeUI() {
  * Setup event listeners
  */
 function setupEventListeners() {
+  // Close button
+  const closeBtn = document.getElementById('close-btn');
+  closeBtn.addEventListener('click', () => {
+    window.close();
+  });
+
   // Details toggle
   const detailsToggle = document.getElementById('details-toggle');
   const sustainabilityDetails = document.getElementById('sustainability-details');
-
   detailsToggle.addEventListener('click', () => {
     sustainabilityDetails.classList.toggle('collapsed');
   });
@@ -87,33 +179,57 @@ function setupEventListeners() {
   // Cart button
   const cartButton = document.getElementById('cart-button');
   cartButton.addEventListener('click', () => {
-    // This would trigger add to cart on Amazon
-    showNotification('Feature coming soon! Visit Amazon to add items to cart.', 'info');
+    // Open Amazon cart in a new tab
+    chrome.tabs.create({ url: 'https://www.amazon.com/gp/cart/view.html' });
   });
 
   // Preview button
   const previewBtn = document.getElementById('preview-btn');
   previewBtn.addEventListener('click', () => {
-    animateFlowerGrowth();
+    animatePlantGrowth(15);
   });
 }
 
 /**
- * Get tier from health percentage
+ * Get grade color
+ */
+function getGradeColor(grade) {
+  const colors = {
+    'A': '#4CAF50',
+    'B': '#7CB342',
+    'C': '#FDD835',
+    'D': '#FF9800',
+    'E': '#EF5350'
+  };
+  return colors[grade] || '#9E9E9E';
+}
+
+/**
+ * Truncate text
+ */
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+/**
+ * Get tier from health percentage (7-tier system)
  */
 function getTier(health) {
-  if (health >= 80) return 5;
-  if (health >= 60) return 4;
-  if (health >= 40) return 3;
-  if (health >= 20) return 2;
+  if (health >= 85) return 7;
+  if (health >= 70) return 6;
+  if (health >= 55) return 5;
+  if (health >= 40) return 4;
+  if (health >= 25) return 3;
+  if (health >= 10) return 2;
   return 1;
 }
 
 /**
- * Get tier label
+ * Get tier label (7-tier system)
  */
 function getTierLabel(tier) {
-  const labels = ['Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+  const labels = ['Withered', 'Seedling', 'Sprout', 'Growing', 'Healthy', 'Thriving', 'Blooming'];
   return labels[tier - 1] || 'Unknown';
 }
 
@@ -128,13 +244,14 @@ function updateScoreDisplay(tier, health) {
 
   scoreNumber.textContent = tier;
   scoreLabel.textContent = getTierLabel(tier);
-  scoreTier.textContent = `Tier ${tier} of 5`;
+  scoreTier.textContent = `Tier ${tier} of 7`;
 
-  // Update circle color based on tier
   const colors = [
+    'linear-gradient(135deg, #8D6E63 0%, #5D4037 100%)',
     'linear-gradient(135deg, #EF5350 0%, #E53935 100%)',
     'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
     'linear-gradient(135deg, #FDD835 0%, #F9A825 100%)',
+    'linear-gradient(135deg, #9CCC65 0%, #7CB342 100%)',
     'linear-gradient(135deg, #66BB6A 0%, #43A047 100%)',
     'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)'
   ];
@@ -157,7 +274,7 @@ function updateTierProgress(tier) {
 }
 
 /**
- * Display product information
+ * Display product information (for single product view)
  */
 function displayProductInfo(product) {
   const productTitle = document.getElementById('product-title');
@@ -166,7 +283,6 @@ function displayProductInfo(product) {
   productTitle.textContent = product.title || 'Current Product';
   productBrand.textContent = product.brand || 'Analyzing...';
 
-  // Update sustainability details
   if (product.environmental !== undefined) {
     document.getElementById('detail-environmental').textContent = `${product.environmental}%`;
   }
@@ -177,10 +293,9 @@ function displayProductInfo(product) {
     document.getElementById('detail-economic').textContent = `${product.economic}%`;
   }
   if (product.carbonFootprint && product.carbonFootprint.co2e) {
-    document.getElementById('detail-carbon').textContent = `${product.carbonFootprint.co2e.toFixed(2)} kg CO₂e`;
+    document.getElementById('detail-carbon').textContent = `${product.carbonFootprint.co2e.toFixed(2)} kg CO2e`;
   }
 
-  // Update tier based on product score
   if (product.overallScore !== undefined) {
     const tier = getTier(product.overallScore);
     updateScoreDisplay(tier, product.overallScore);
@@ -189,143 +304,97 @@ function displayProductInfo(product) {
 }
 
 /**
- * Render flower based on health percentage
+ * Get plant stage from health percentage (7 stages total)
  */
-function renderFlower(health) {
-  const container = document.getElementById('flower-container');
-  if (!container) {
-    console.error('BloomCart: Flower container not found');
-    return;
-  }
-
-  // Ensure health is a valid number
-  health = health || 50;
-
-  console.log('BloomCart: Rendering flower with health:', health);
-
-  container.innerHTML = '';
-
-  // Add decorative leaves
-  for (let i = 0; i < 3; i++) {
-    const leaf = document.createElement('div');
-    leaf.className = 'decorative-leaf';
-    container.appendChild(leaf);
-  }
-
-  // Calculate flower size based on health
-  const stemHeight = 40 + (health / 100) * 100; // 40-140px
-  const bloomCount = Math.max(1, Math.floor((health / 100) * 4)); // 1-4 blooms
-  const leafCount = Math.max(1, Math.ceil((health / 100) * 4)); // 1-4 leaves
-
-  // Create stem
-  const stem = document.createElement('div');
-  stem.className = 'flower-stem';
-  stem.style.height = `${stemHeight}px`;
-  container.appendChild(stem);
-
-  // Create leaves
-  for (let i = 0; i < leafCount; i++) {
-    const leafLeft = document.createElement('div');
-    leafLeft.className = 'flower-leaf left';
-    leafLeft.style.bottom = `${20 + (i * 25)}px`;
-    leafLeft.style.left = `calc(50% - 25px)`;
-    container.appendChild(leafLeft);
-
-    if (i < leafCount - 1) {
-      const leafRight = document.createElement('div');
-      leafRight.className = 'flower-leaf right';
-      leafRight.style.bottom = `${30 + (i * 25)}px`;
-      leafRight.style.left = `calc(50% + 15px)`;
-      container.appendChild(leafRight);
-    }
-  }
-
-  // Create blooms
-  for (let i = 0; i < bloomCount; i++) {
-    const bloom = document.createElement('div');
-    bloom.className = 'flower-bloom';
-
-    // Position blooms along the stem
-    const bloomHeight = stemHeight - 35 - (i * 25);
-    bloom.style.bottom = `${bloomHeight}px`;
-    bloom.style.left = '50%';
-    bloom.style.transform = 'translateX(-50%)';
-    bloom.style.width = '50px';
-    bloom.style.height = '50px';
-
-    // Create petals
-    for (let j = 0; j < 5; j++) {
-      const petal = document.createElement('div');
-      petal.className = 'flower-petal';
-      petal.style.setProperty('--rotation', `${j * 72}deg`);
-      bloom.appendChild(petal);
-    }
-
-    // Create center
-    const center = document.createElement('div');
-    center.className = 'flower-center';
-    bloom.appendChild(center);
-
-    container.appendChild(bloom);
-  }
-
-  console.log('BloomCart: Flower rendered successfully -', bloomCount, 'blooms,', leafCount, 'leaves');
+function getPlantStage(health) {
+  if (health >= 85) return 7;
+  if (health >= 70) return 6;
+  if (health >= 55) return 5;
+  if (health >= 40) return 4;
+  if (health >= 25) return 3;
+  if (health >= 10) return 2;
+  return 1;
 }
 
 /**
- * Animate flower growth
+ * Set plant image to specific stage
  */
-function animateFlowerGrowth() {
-  const container = document.getElementById('flower-container');
-  container.classList.remove('withering');
-  container.classList.add('growing');
+function setPlantStage(health) {
+  if (!plantImage) return;
 
+  const stage = getPlantStage(health);
+  const imagePath = chrome.runtime.getURL(`assets/images/plant-stages/plant-stage-${stage}.jpg`);
+
+  plantImage.classList.add('changing');
   setTimeout(() => {
-    container.classList.remove('growing');
-  }, 800);
+    plantImage.src = imagePath;
+    plantImage.classList.remove('changing');
+  }, 300);
 }
 
 /**
- * Animate flower withering
+ * Animate plant growth
  */
-function animateFlowerWithering() {
-  const container = document.getElementById('flower-container');
-  container.classList.remove('growing');
-  container.classList.add('withering');
+function animatePlantGrowth(healthIncrease = 15) {
+  if (!plantImage) return;
 
-  setTimeout(() => {
-    container.classList.remove('withering');
-  }, 800);
+  const currentHealth = currentPlantState.currentFrame || 50;
+  const newHealth = Math.min(100, currentHealth + healthIncrease);
+
+  setPlantStage(newHealth);
+
+  currentPlantState.currentFrame = newHealth;
+  chrome.storage.local.set({ plantState: currentPlantState });
 }
 
 /**
- * Update flower when plant state changes
+ * Animate plant withering
  */
-function updateFlower(newHealth) {
+function animatePlantWithering(healthDecrease = 20) {
+  if (!plantImage) return;
+
+  const currentHealth = currentPlantState.currentFrame || 50;
+  const newHealth = Math.max(0, currentHealth - healthDecrease);
+
+  setPlantStage(newHealth);
+
+  currentPlantState.currentFrame = newHealth;
+  chrome.storage.local.set({ plantState: currentPlantState });
+}
+
+/**
+ * Get frame change based on rating grade
+ */
+function getFrameChangeForGrade(grade) {
+  return { 'A': 15, 'B': 10, 'C': 0, 'D': -15, 'E': -20 }[grade] || 0;
+}
+
+/**
+ * Update plant when plant state changes
+ */
+function updatePlant(newHealth) {
   const oldHealth = currentPlantState.currentFrame || 50;
+  const healthChange = Math.abs(newHealth - oldHealth);
+
+  if (newHealth > oldHealth) {
+    animatePlantGrowth(healthChange);
+  } else if (newHealth < oldHealth) {
+    animatePlantWithering(healthChange);
+  } else {
+    setPlantStage(newHealth);
+  }
+
   currentPlantState.currentFrame = newHealth;
 
-  // Determine if growing or withering
-  if (newHealth > oldHealth) {
-    animateFlowerGrowth();
-  } else if (newHealth < oldHealth) {
-    animateFlowerWithering();
-  }
-
-  // Re-render flower after animation
-  setTimeout(() => {
-    renderFlower(newHealth);
-    const tier = getTier(newHealth);
-    updateScoreDisplay(tier, newHealth);
-    updateTierProgress(tier);
-  }, 400);
+  const tier = getTier(newHealth);
+  updateScoreDisplay(tier, newHealth);
+  updateTierProgress(tier);
 }
 
 /**
  * Show notification
  */
 function showNotification(message, type = 'success') {
-  // Create notification element
   const notification = document.createElement('div');
   notification.style.cssText = `
     position: fixed;
@@ -354,15 +423,20 @@ function showNotification(message, type = 'success') {
  * Listen for storage changes to update UI in real-time
  */
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && changes.plantState) {
-    console.log('BloomCart Popup: Plant state updated', changes.plantState.newValue);
-    const newState = changes.plantState.newValue;
-
-    if (newState.currentFrame !== currentPlantState.currentFrame) {
-      updateFlower(newState.currentFrame);
+  if (areaName === 'local') {
+    if (changes.plantState) {
+      const newState = changes.plantState.newValue;
+      if (newState.currentFrame !== currentPlantState.currentFrame) {
+        updatePlant(newState.currentFrame);
+      }
+      currentPlantState = newState;
     }
-
-    currentPlantState = newState;
+    if (changes.cartItems) {
+      const newItems = changes.cartItems.newValue;
+      if (newItems && newItems.length > 0) {
+        displayCartItems(newItems);
+      }
+    }
   }
 });
 
@@ -374,13 +448,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     currentProductRating = message.product;
     displayProductInfo(message.product);
   } else if (message.action === 'cartItemAdded') {
-    // Animate based on item quality
-    if (message.impact > 0) {
-      animateFlowerGrowth();
-      showNotification(`Great choice! Your plant grew!`, 'success');
-    } else if (message.impact < 0) {
-      animateFlowerWithering();
-      // Removed negative notification message
+    if (message.product && message.product.grade) {
+      const frameChange = getFrameChangeForGrade(message.product.grade);
+      if (frameChange > 0) {
+        animatePlantGrowth(frameChange);
+        showNotification('Great choice! Your plant grew!', 'success');
+      } else if (frameChange < 0) {
+        animatePlantWithering(Math.abs(frameChange));
+      }
     }
   }
 });
