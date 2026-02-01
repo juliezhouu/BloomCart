@@ -703,11 +703,9 @@ function showFloatingTab(options = {}) {
         <!-- Tab Navigation -->
         <div class="tab-navigation">
           <button class="tab-btn active" id="tab-btn-overview">
-            <span class="tab-icon">🌱</span>
             <span class="tab-label">Overview</span>
           </button>
           <button class="tab-btn" id="tab-btn-analytics">
-            <span class="tab-icon">📊</span>
             <span class="tab-label">Analytics</span>
           </button>
         </div>
@@ -944,47 +942,77 @@ function drawTabPieChart(product) {
 
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, displaySize, displaySize);
 
   const centerX = displaySize / 2;
   const centerY = displaySize / 2;
 
   // Get percentile data
   const percentiles = getProductPercentiles(product);
-  const overallPct = percentiles.overall;
+  const targetPct = percentiles.overall;
 
   // Donut configuration
   const radius = 70;
   const lineWidth = 20;
 
-  // Draw background circle
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-  ctx.strokeStyle = '#E8E8E8';
-  ctx.lineWidth = lineWidth;
-  ctx.lineCap = 'butt';
-  ctx.stroke();
+  // Animation parameters
+  const duration = 1200; // 1.2 seconds
+  const startTime = performance.now();
+  let animationFrame;
 
-  // Draw filled arc
-  const startAngle = -Math.PI / 2;
-  const endAngle = startAngle + (overallPct / 100) * 2 * Math.PI;
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // Easing function for smooth animation (ease-out)
+    const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+    const currentPct = targetPct * easeOutCubic;
 
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-  ctx.strokeStyle = '#4CAF50';
-  ctx.lineWidth = lineWidth;
-  ctx.lineCap = 'butt';
-  ctx.stroke();
+    // Clear canvas
+    ctx.clearRect(0, 0, displaySize, displaySize);
 
-  // Center text
-  ctx.fillStyle = '#2E7D32';
-  ctx.font = '600 24px Montserrat, Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(ordinalSuffix(overallPct), centerX, centerY - 6);
-  ctx.font = '400 11px Montserrat, Arial, sans-serif';
-  ctx.fillStyle = '#666';
-  ctx.fillText('percentile', centerX, centerY + 12);
+    // Draw background circle
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#E8E8E8';
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'butt';
+    ctx.stroke();
+
+    // Draw animated arc
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + (currentPct / 100) * 2 * Math.PI;
+
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+    ctx.strokeStyle = '#4CAF50';
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'butt';
+    ctx.stroke();
+
+    // Center text with animated number
+    ctx.fillStyle = '#2E7D32';
+    ctx.font = '600 24px Montserrat, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ordinalSuffix(Math.round(currentPct)), centerX, centerY - 6);
+    ctx.font = '400 11px Montserrat, Arial, sans-serif';
+    ctx.fillStyle = '#666';
+    ctx.fillText('percentile', centerX, centerY + 12);
+
+    // Continue animation until complete
+    if (progress < 1) {
+      animationFrame = requestAnimationFrame(animate);
+    }
+  }
+
+  // Cancel any existing animation
+  if (canvas._animationFrame) {
+    cancelAnimationFrame(canvas._animationFrame);
+  }
+
+  // Start animation
+  animationFrame = requestAnimationFrame(animate);
+  canvas._animationFrame = animationFrame;
 }
 
 /**

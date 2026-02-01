@@ -403,14 +403,26 @@ function getPlantStage(health) {
 function setPlantStage(health) {
   if (!plantImage) return;
 
-  const stage = getPlantStage(health);
-  const imagePath = chrome.runtime.getURL(`assets/images/plant-stages/plant-stage-${stage}.jpg`);
+  const newStage = getPlantStage(health);
+  const previousStage = plantImage.dataset.currentStage ? parseInt(plantImage.dataset.currentStage) : newStage;
+  const imagePath = chrome.runtime.getURL(`assets/images/plant-stages/plant-stage-${newStage}.jpg`);
 
   plantImage.classList.add('changing');
   setTimeout(() => {
     plantImage.src = imagePath;
     plantImage.classList.remove('changing');
   }, 300);
+
+  // Store current stage
+  plantImage.dataset.currentStage = newStage;
+
+  // If stage dropped, trigger sad effects
+  if (previousStage > newStage) {
+    triggerPlantSadness(newStage);
+  } else {
+    // Remove sadness effects if stage improved
+    plantImage.classList.remove('plant-sad');
+  }
 }
 
 /**
@@ -427,6 +439,21 @@ function animatePlantGrowth(healthIncrease = 15) {
   currentPlantState.currentFrame = newHealth;
   chrome.storage.local.set({ plantState: currentPlantState });
 }
+
+/**
+ * Trigger plant sadness visual effects (grayscale)
+ */
+function triggerPlantSadness(stage) {
+  if (!plantImage) return;
+  
+  // Add sadness class for grayscale effect
+  plantImage.classList.add('plant-sad');
+  
+  // Gradually reduce grayscale based on stage
+  const grayAmount = Math.max(0, (5 - stage) * 15);
+  plantImage.style.filter = `grayscale(${grayAmount}%)`;
+}
+
 
 /**
  * Animate plant withering

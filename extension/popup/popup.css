@@ -502,22 +502,26 @@ body {
 }
 
 .plant-stage-image {
-  width: 200px;
-  height: 200px;
-  object-fit: cover;
+  width: 280px;
+  height: 280px;
+  object-fit: contain;
   display: block;
-  border-radius: 50%;
   transition: all 0.6s ease-in-out;
   margin: 0 auto;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  /* Animation for smooth transitions */
   opacity: 1;
   transform: scale(1);
+  animation: gentleFloat 4s ease-in-out infinite;
+  position: relative;
+  z-index: 2;
 }
 
 .plant-stage-image.changing {
   opacity: 0.7;
   transform: scale(0.95);
+}
+
+.plant-stage-image.plant-sad {
+  transition: filter 1s ease-out;
 }
 
 .garden-title {
@@ -530,6 +534,82 @@ body {
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
+
+/* Sunshine effect */
+.sunshine {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: opacity 0.8s ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sunshine.active {
+  opacity: 1;
+}
+
+.sun-core {
+  position: absolute;
+  top: 15%;
+  left: 20%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  animation: sunBounce 2s ease-in-out infinite;
+}
+
+.kawaii-sun {
+  filter: drop-shadow(0 4px 8px rgba(255, 193, 7, 0.4));
+}
+
+.sun-ray {
+  position: absolute;
+  top: 15%;
+  left: 20%;
+  width: 80px;
+  height: 20px;
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.9), rgba(255, 193, 7, 0.8), transparent);
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+  animation: rotateRays 8s linear infinite;
+  clip-path: polygon(0 50%, 100% 0%, 100% 100%);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.7), 0 0 25px rgba(255, 193, 7, 0.5);
+  filter: blur(1px);
+}
+
+.sunshine.intensity-high .sun-ray {
+  background: linear-gradient(90deg, rgba(255, 193, 7, 1), rgba(255, 152, 0, 0.9), transparent);
+  animation-duration: 6s;
+  height: 24px;
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.9), 0 0 30px rgba(255, 152, 0, 0.6);
+}
+
+.sunshine.intensity-max .sun-ray {
+  background: linear-gradient(90deg, rgba(255, 183, 77, 1), rgba(255, 152, 0, 1), transparent);
+  animation-duration: 4s;
+  height: 28px;
+  box-shadow: 0 0 25px rgba(255, 193, 7, 1), 0 0 35px rgba(255, 152, 0, 0.8);
+}
+
+.sun-ray.ray-1 { transform: rotate(0deg); }
+.sun-ray.ray-2 { transform: rotate(22.5deg); animation-delay: -0.5s; }
+.sun-ray.ray-3 { transform: rotate(45deg); animation-delay: -1s; }
+.sun-ray.ray-4 { transform: rotate(67.5deg); animation-delay: -1.5s; }
+.sun-ray.ray-5 { transform: rotate(90deg); animation-delay: -2s; }
+.sun-ray.ray-6 { transform: rotate(112.5deg); animation-delay: -2.5s; }
+.sun-ray.ray-7 { transform: rotate(135deg); animation-delay: -3s; }
+.sun-ray.ray-8 { transform: rotate(157.5deg); animation-delay: -3.5s; }
+.sun-ray.ray-9 { transform: rotate(180deg); animation-delay: -4s; }
+.sun-ray.ray-10 { transform: rotate(202.5deg); animation-delay: -4.5s; }
+.sun-ray.ray-11 { transform: rotate(225deg); animation-delay: -5s; }
+.sun-ray.ray-12 { transform: rotate(247.5deg); animation-delay: -5.5s; }
+.sun-ray.ray-13 { transform: rotate(270deg); animation-delay: -6s; }
+.sun-ray.ray-14 { transform: rotate(292.5deg); animation-delay: -6.5s; }
+.sun-ray.ray-15 { transform: rotate(315deg); animation-delay: -7s; }
+.sun-ray.ray-16 { transform: rotate(337.5deg); animation-delay: -7.5s; }
 
 .preview-btn {
   position: absolute;
@@ -850,4 +930,43 @@ body {
 .popup-footer p {
   font-size: 12px;
   color: #9E9E9E;
+}
+
+/* Plant floating animation */
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  25% {
+    transform: translateY(-4px) scale(1.02);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.03);
+  }
+  75% {
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
+@keyframes sunBounce {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -55%) scale(1.05);
+  }
+}
+
+@keyframes rotateRays {
+  0% {
+    transform: rotate(0deg) translateX(0);
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(360deg) translateX(0);
+    opacity: 0.4;
+  }
 }
