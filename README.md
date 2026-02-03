@@ -1,6 +1,6 @@
-# BloomCart 🛒🌸
+# BloomCart
 
-BloomCart transforms sustainable shopping into an engaging experience. This Chrome extension analyzes Amazon products  using Gemini AI and Climatiq's carbon data (along with water usage, recyclability and other databases), providing A-E sustainability ratings while visualizing your environmental impact through a lovely animated cutiepie flower that grows with eco-friendly choices and shrinks (and becomes depressed!) with unsustainable items added to user's cart. Features MongoDB-backed purchase tracking and a clean floating tab UI!
+Chrome extension that analyzes Amazon products using Gemini API (web scraping) and Climatiq's carbon data (along with water usage, recyclability, and other environmental databases), providing A-E sustainability ratings while visualizing your environmental impact through an animated plant that grows with eco-friendly choices and wilts with unsustainable items added to your cart. Features MongoDB-backed purchase tracking and a clean floating tab UI.
 
 ## 📋 Rating System
 
@@ -11,3 +11,4 @@ BloomCart transforms sustainable shopping into an engaging experience. This Chro
 | C | 5-10 | -5 | Average - Moderate carbon impact |
 | D | 10-20 | -10 | Poor - High carbon emissions |
 | E | > 20 | -15 | Very Poor - Significant environmental impact |
+
