@@ -1,6 +1,6 @@
 # BloomCart 🛒🌸
 
-Turn sustainable shopping into a virtual garden! BloomCart is a Chrome extension that gamifies eco-friendly shopping on Amazon by visualizing your environmental impact through an animated plant that grows or shrinks based on your purchase decisions.
+BloomCart transforms sustainable shopping into an engaging experience. This Chrome extension analyzes Amazon products  using Gemini AI and Climatiq's carbon data (along with water usage, recyclability and other databases), providing A-E sustainability ratings while visualizing your environmental impact through a lovely animated cutiepie flower that grows with eco-friendly choices and shrinks (and becomes depressed!) with unsustainable items added to user's cart. Features MongoDB-backed purchase tracking and a clean floating tab UI!
 
 ## 📋 Rating System
 
